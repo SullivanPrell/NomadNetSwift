@@ -5,7 +5,8 @@ A Swift port of [NomadNet](https://github.com/markqvist/NomadNet) (Nomad Network
 
 [![Platforms](https://img.shields.io/badge/platforms-iOS%2016%2B%20%7C%20macOS%2013%2B-blue)](#requirements)
 [![Swift](https://img.shields.io/badge/Swift-5.9-orange)](https://swift.org)
-[![Tests](https://img.shields.io/badge/tests-470%20passing-brightgreen)](#testing)
+[![CI](https://github.com/SullivanPrell/NomadNetSwift/actions/workflows/ci.yml/badge.svg)](https://github.com/SullivanPrell/NomadNetSwift/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/badge/coverage-83%25-brightgreen)](#testing)
 [![License](https://img.shields.io/badge/license-Reticulum-lightgrey)](LICENSE)
 
 Nomad Network is a resilient, server-optional "web" that runs entirely over
@@ -23,8 +24,9 @@ This is part of the [ReticulumSwift stack](https://github.com/SullivanPrell/Reti
 
 ## Status
 
-**At parity with Python NomadNet.** Micron markup, Browser, node (`NNNode`),
-RRC, and the node directory (`NNDirectory`). **470 unit tests, 0 failures.**
+NomadNetSwift implements NomadNet — Micron markup, the browser, the node
+(`NNNode`), RRC, and the node directory (`NNDirectory`) — and is wire-compatible
+with the Python reference. Covered by 470 unit tests (~83% line coverage).
 
 ## Requirements
 

@@ -6,8 +6,8 @@ browsing must match the reference.
 
 ## Ground rules
 
-- **Test-driven**: failing test first, implement to green, commit. Keep
-  `swift test` at 470/0.
+- **Test-driven**: failing test first, implement to green, commit. Keep the full
+  `swift test` suite green (no regressions).
 - **Parity**: source comments reference the corresponding Python files
   (`Node.py`, `MicronParser.py`, `Browser.py`, `RRC.py`) — keep logic aligned.
 

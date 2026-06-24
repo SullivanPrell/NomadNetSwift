@@ -20,4 +20,4 @@ with the Python reference.
 - **RRC** — Remote Resource Calls for invoking remote services.
 - **NNDirectory** — a directory of known nodes learned from announces.
 
-470 unit tests, 0 failures. Built on ReticulumSwift 1.0.0.
+Covered by 470 unit tests (~83% line coverage). Built on ReticulumSwift 1.0.0.
