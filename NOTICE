@@ -1,0 +1,14 @@
+NomadNetSwift
+Copyright (c) 2026 NomadNetSwift contributors
+
+This product is a Swift port of NomadNet (Nomad Network) and is a derivative
+work of the original Python implementation:
+
+  NomadNet — Copyright (c) Mark Qvist
+  https://github.com/markqvist/NomadNet
+
+It builds on ReticulumSwift, a port of the Reticulum Network Stack
+(https://github.com/markqvist/Reticulum), also by Mark Qvist.
+
+NomadNetSwift is distributed under the Reticulum License (see LICENSE), the same
+license used by the upstream projects.
