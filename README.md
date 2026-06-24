@@ -1,5 +1,12 @@
 # NomadNetSwift
 
+> **Reticulum and Nomad Network are the work of [Mark Qvist](https://github.com/markqvist).** This
+> is an independent, community Swift implementation of NomadNet — **not an official Reticulum
+> project**. The canonical project and reference (Python) implementation live at
+> **[github.com/markqvist/NomadNet](https://github.com/markqvist/NomadNet)**, part of the broader
+> **[Reticulum](https://github.com/markqvist/Reticulum)** network created by Mark; please look
+> there first to understand the protocol itself.
+
 A Swift port of [NomadNet](https://github.com/markqvist/NomadNet) (Nomad Network)
 — decentralized, encrypted pages and services over Reticulum.
 
