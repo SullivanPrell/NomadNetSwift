@@ -303,6 +303,10 @@ public final class RRCHub {
     /// which sets `hub.manager = nil` before releasing the hub.
     internal var manager: RRCManager?
 
+    /// Default cap on an accepted hub→client resource transfer (256 KiB).
+    /// Mirrors Python's `rrc_max_accepted_resource_size` default (commit 510d476).
+    public static let defaultMaxAcceptedResourceSize: Int = 262144
+
     private struct ResourceExpectation {
         var kind: String
         var size: Int
@@ -491,6 +495,11 @@ public final class RRCHub {
         _setStatus(.connecting, text: "Identified, sending HELLO")
         try? _link?.identify(as: identity)
         _link?.resourceStrategy = .acceptApp
+        // Accept and consume hub→client resource transfers (MOTD, long notices, and
+        // large /who or /list replies the hub sends as a resource when they exceed the
+        // link packet MDU). Without these callbacks the Link rejects every hub resource.
+        _link?.onResourceAdvertised = { [weak self] adv, _ in self?._resourceAdvertised(size: Int(adv.dataSize)) ?? false }
+        _link?.onResourceConcluded  = { [weak self] payload, _, _ in self?._resourceConcluded(payload: payload) }
 
         _helloTask?.cancel()
         _helloTask = Task { [weak self] in
@@ -901,11 +910,11 @@ public final class RRCHub {
         _recordMessage(msg)
     }
 
-    private func _handleNotice(env: [Int: CBOR.Value]) {
-        guard case .text(let body) = env[RRC.Key.body] else { return }
-        let src: Data? = { if case .bytes(let b) = env[RRC.Key.src] { return b } else { return nil } }()
-        let rawRoom: String? = { if case .text(let r) = env[RRC.Key.room] { return r } else { return nil } }()
-
+    /// Parse hub service notices (`/list` and `/who` replies) regardless of whether
+    /// they arrived as a packet or a resource transfer. Returns `true` when the notice
+    /// was consumed silently (an auto `/list` or `/who`) and should not be recorded to
+    /// the message log. Mirrors Python `RRCHub._process_notice_text` (commit f07a035).
+    private func _processNoticeText(_ body: String) -> Bool {
         // Detect /list response
         if let parsed = RRCHub.parseRoomListNotice(body) {
             let silent: Bool = _lock.withLock {
@@ -915,12 +924,12 @@ public final class RRCHub {
                 return s
             }
             manager?._notifyChange(self)
-            if silent { return }
+            if silent { return true }
         }
 
         // Detect /who response
         if let (whoRoom, entries) = RRCHub.parseWhoNotice(body) {
-            _lock.withLock {
+            let silentWho: Bool = _lock.withLock {
                 var mset = members[whoRoom] ?? []
                 for (nick, hexStr) in entries {
                     guard let hBytes = _rrcHexData(hexStr) else { continue }
@@ -933,11 +942,25 @@ public final class RRCHub {
                     }
                 }
                 members[whoRoom] = mset
-                let silent = _silentWhoRooms.contains(whoRoom)
-                if silent { _silentWhoRooms.remove(whoRoom) }
+                let s = _silentWhoRooms.contains(whoRoom)
+                if s { _silentWhoRooms.remove(whoRoom) }
+                return s
             }
             manager?._notifyChange(self)
+            if silentWho { return true }
         }
+
+        return false
+    }
+
+    private func _handleNotice(env: [Int: CBOR.Value]) {
+        guard case .text(let body) = env[RRC.Key.body] else { return }
+        let src: Data? = { if case .bytes(let b) = env[RRC.Key.src] { return b } else { return nil } }()
+        let rawRoom: String? = { if case .text(let r) = env[RRC.Key.room] { return r } else { return nil } }()
+
+        // Parse /list and /who service notices; a silently-consumed auto reply is
+        // not recorded to the log.
+        if _processNoticeText(body) { return }
 
         // MOTD: a notice with no room
         let room = rawRoom?.trimmingCharacters(in: .whitespaces).lowercased()
@@ -989,6 +1012,57 @@ public final class RRCHub {
                                                               encoding: encoding, room: room,
                                                               expires: Date().addingTimeInterval(30))
         }
+    }
+
+    /// Accept/reject an inbound hub resource advertisement by size.
+    /// Mirrors Python `RRCHub._resource_advertised` (commit 510d476): reject when the
+    /// advertised data size exceeds the configured cap, or the cap is disabled (<= 0).
+    internal func _resourceAdvertised(size: Int) -> Bool {
+        let maxSize = manager?.maxAcceptedResourceSize ?? RRCHub.defaultMaxAcceptedResourceSize
+        if maxSize <= 0 || size > maxSize { return false }
+        return true
+    }
+
+    /// Handle a concluded hub→client resource transfer. Matches the assembled payload
+    /// to a previously-advertised `ResourceExpectation` (by exact size), verifies the
+    /// optional sha256, decodes the text, and routes MOTD / `/who` / `/list` notices
+    /// through the same parser as the packet path. Mirrors Python
+    /// `RRCHub._resource_concluded` (commit f07a035).
+    internal func _resourceConcluded(payload: Data) {
+        let now = Date()
+        let matched: ResourceExpectation? = _lock.withLock {
+            // Drop expired expectations, then match on exact assembled size.
+            for (k, v) in _resourceExpectations where v.expires < now { _resourceExpectations[k] = nil }
+            for (k, exp) in _resourceExpectations where exp.size == payload.count {
+                _resourceExpectations[k] = nil
+                return exp
+            }
+            return nil
+        }
+
+        let kind = matched?.kind ?? RRC.ResKind.blob
+        let room = matched?.room
+
+        // Verify the optional integrity hash before trusting the payload.
+        if let sha = matched?.sha256, Data(SHA256.hash(data: payload)) != sha { return }
+
+        // Only notice/MOTD payloads carry text we act on; blobs are ignored.
+        guard kind == RRC.ResKind.notice || kind == RRC.ResKind.motd else { return }
+
+        // Decode as UTF-8 (lossy — mirrors Python decode(errors="replace")). Resource
+        // envelopes use utf-8; unknown encodings fall back to the same lossy decode.
+        let text = String(decoding: payload, as: UTF8.self)
+
+        if kind == RRC.ResKind.motd {
+            _lock.withLock { motd = text }
+            manager?._notifyChange(self)
+        } else if _processNoticeText(text) {
+            return
+        }
+
+        let msg = RRCMessage(kind: "notice", room: room, src: nil, nick: nil, text: text,
+                             ts: Int64(Date().timeIntervalSince1970 * 1000))
+        _recordNotice(msg)
     }
 
     // MARK: - Message recording
@@ -1297,6 +1371,11 @@ public final class RRCManager {
     public private(set) var hubs: [RRCHub] = []
     public var onChangeCallback:  ((RRCHub?) -> Void)?
     public var onMessageCallback: ((RRCHub, RRCMessage) -> Void)?
+
+    /// Maximum size, in bytes, of a hub→client resource transfer this client will
+    /// accept. Larger advertisements are rejected; `<= 0` disables all resource
+    /// acceptance. Mirrors Python `rrc_max_accepted_resource_size` (default 256 KiB).
+    public var maxAcceptedResourceSize: Int = RRCHub.defaultMaxAcceptedResourceSize
 
     // Optional production app protocol — provides identity + storage
     public weak var app: NomadNetworkAppProtocol?
