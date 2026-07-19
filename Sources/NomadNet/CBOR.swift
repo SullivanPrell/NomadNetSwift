@@ -140,7 +140,12 @@ public enum CBOR {
 
         case 2: // byte string
             let len = try readUInt(info: info, data: data, cursor: &cursor)
-            guard let end = data.index(cursor, offsetBy: Int(len), limitedBy: data.endIndex)
+            // `len` is a wire-parsed UInt64; `Int(len)` would trap on any value
+            // exceeding Int.max. Convert with Int(exactly:) and treat an
+            // out-of-range length as truncated input. Wire-neutral: valid lengths
+            // fit in Int on 64-bit and are then bounds-checked by index(...).
+            guard let lenInt = Int(exactly: len),
+                  let end = data.index(cursor, offsetBy: lenInt, limitedBy: data.endIndex)
             else { throw CBORError.unexpectedEndOfData }
             let bytes = Data(data[cursor ..< end])
             cursor = end
@@ -148,7 +153,10 @@ public enum CBOR {
 
         case 3: // text string
             let len = try readUInt(info: info, data: data, cursor: &cursor)
-            guard let end = data.index(cursor, offsetBy: Int(len), limitedBy: data.endIndex)
+            // See case 2: guard the UInt64→Int narrowing so an oversized wire
+            // length is rejected as truncated input rather than trapping.
+            guard let lenInt = Int(exactly: len),
+                  let end = data.index(cursor, offsetBy: lenInt, limitedBy: data.endIndex)
             else { throw CBORError.unexpectedEndOfData }
             let utf8 = Data(data[cursor ..< end])
             cursor = end
