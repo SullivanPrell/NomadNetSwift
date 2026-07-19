@@ -348,8 +348,10 @@ public class NNDirectory {
                 }()
 
                 let trust: DirectoryEntry.TrustLevel = {
-                    if case .uint(let u) = arr[2] {
-                        return DirectoryEntry.TrustLevel(rawValue: UInt8(u)) ?? .unknown
+                    // `UInt8(u)` traps if a persisted/corrupt value exceeds 255;
+                    // UInt8(exactly:) maps any out-of-range value to .unknown.
+                    if case .uint(let u) = arr[2], let raw = UInt8(exactly: u) {
+                        return DirectoryEntry.TrustLevel(rawValue: raw) ?? .unknown
                     }
                     return .unknown
                 }()
@@ -360,8 +362,9 @@ public class NNDirectory {
                 }() : false
 
                 let delivery: DirectoryEntry.Delivery = arr.count > 4 ? {
-                    if case .uint(let u) = arr[4] {
-                        return DirectoryEntry.Delivery(rawValue: UInt8(u)) ?? .direct
+                    // Guard the UInt8 narrowing (see `trust`): out-of-range → .direct.
+                    if case .uint(let u) = arr[4], let raw = UInt8(exactly: u) {
+                        return DirectoryEntry.Delivery(rawValue: raw) ?? .direct
                     }
                     return .direct
                 }() : .direct

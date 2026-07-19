@@ -383,6 +383,22 @@ public final class RRCHub {
         return _lock.withLock { Array(messages[r] ?? []) }
     }
 
+    /// Snapshot the joined-rooms set under the hub lock (callers on other threads
+    /// must not iterate `rooms` directly — packet handlers mutate it).
+    internal func snapshotRooms() -> [String] {
+        _lock.withLock { Array(rooms) }
+    }
+
+    /// Snapshot the joined rooms and the parted-room message keys atomically
+    /// under the hub lock, for a consistent view during save().
+    internal func snapshotRoomsForSave() -> (joined: [String], parted: [String]) {
+        _lock.withLock {
+            let joined = Array(rooms)
+            let parted = messages.keys.filter { !rooms.contains($0) }
+            return (joined, parted)
+        }
+    }
+
     public func normalizeRoom(_ room: String) throws -> String {
         let r = room.trimmingCharacters(in: .whitespaces).lowercased()
         guard !r.isEmpty else { throw RRCHubError.emptyRoom }
@@ -761,27 +777,32 @@ public final class RRCHub {
         if case .map(let bodyPairs) = env[RRC.Key.body] {
             var body: [Int: CBOR.Value] = [:]
             for (k, v) in bodyPairs { if case .uint(let u) = k { body[Int(u)] = v } }
-            if case .text(let n) = body[RRC.WelcomeField.hub]  { hubName    = n }
-            if case .text(let v) = body[RRC.WelcomeField.ver]  { hubVersion = v }
-            if case .map(let cp) = body[RRC.WelcomeField.caps] {
-                var caps: [Int: Bool] = [:]
-                for (k, v) in cp {
-                    if case .uint(let u) = k, case .bool(let b) = v { caps[Int(u)] = b }
-                }
-                hubCaps = caps
-            }
-            if case .map(let lp) = body[RRC.WelcomeField.limits] {
-                var lims: [Int: Int] = [:]
-                for (k, v) in lp {
-                    if case .uint(let u) = k {
-                        if case .uint(let n) = v { lims[Int(u)] = Int(n) }
+            // Assign the hub metadata/limits under the lock — they are readable
+            // from other threads (UI). Building the local caps/lims dicts inside
+            // the lock is fine (no callouts).
+            _lock.withLock {
+                if case .text(let n) = body[RRC.WelcomeField.hub]  { hubName    = n }
+                if case .text(let v) = body[RRC.WelcomeField.ver]  { hubVersion = v }
+                if case .map(let cp) = body[RRC.WelcomeField.caps] {
+                    var caps: [Int: Bool] = [:]
+                    for (k, v) in cp {
+                        if case .uint(let u) = k, case .bool(let b) = v { caps[Int(u)] = b }
                     }
+                    hubCaps = caps
                 }
-                if let v = lims[RRC.LimitField.maxNickBytes]            { maxNickBytes = v }
-                if let v = lims[RRC.LimitField.maxRoomNameBytes]        { maxRoomNameBytes = v }
-                if let v = lims[RRC.LimitField.maxMsgBodyBytes]         { maxMsgBodyBytes = v }
-                if let v = lims[RRC.LimitField.maxRoomsPerSession]      { maxRoomsPerSession = v }
-                if let v = lims[RRC.LimitField.rateLimitMsgsPerMinute]  { rateLimitMsgsPerMinute = v }
+                if case .map(let lp) = body[RRC.WelcomeField.limits] {
+                    var lims: [Int: Int] = [:]
+                    for (k, v) in lp {
+                        if case .uint(let u) = k {
+                            if case .uint(let n) = v { lims[Int(u)] = Int(n) }
+                        }
+                    }
+                    if let v = lims[RRC.LimitField.maxNickBytes]            { maxNickBytes = v }
+                    if let v = lims[RRC.LimitField.maxRoomNameBytes]        { maxRoomNameBytes = v }
+                    if let v = lims[RRC.LimitField.maxMsgBodyBytes]         { maxMsgBodyBytes = v }
+                    if let v = lims[RRC.LimitField.maxRoomsPerSession]      { maxRoomsPerSession = v }
+                    if let v = lims[RRC.LimitField.rateLimitMsgsPerMinute]  { rateLimitMsgsPerMinute = v }
+                }
             }
         }
         _lock.withLock { _reconnectAttempts = 0 }
@@ -1008,6 +1029,11 @@ public final class RRCHub {
         let encoding: String = { if case .text(let e) = body[RRC.ResField.encoding] { return e } else { return "utf-8" } }()
         let room: String? = { if case .text(let r) = env[RRC.Key.room] { return r.lowercased() } else { return nil } }()
         _lock.withLock {
+            // Sweep expired expectations on insert too (not only in
+            // _resourceConcluded) — a peer sending envelopes that never conclude
+            // would otherwise grow this dictionary without bound.
+            let now = Date()
+            for (k, v) in _resourceExpectations where v.expires < now { _resourceExpectations[k] = nil }
             _resourceExpectations[rid] = ResourceExpectation(kind: kind, size: size, sha256: sha256,
                                                               encoding: encoding, room: room,
                                                               expires: Date().addingTimeInterval(30))
@@ -1081,8 +1107,10 @@ public final class RRCHub {
                     if msg.mention { mentionRooms.insert(r) }
                 }
             }
-            manager?._notifyMessages(hub: self, msg: msg)
         }
+        // Fire the message callback OUTSIDE the hub lock (it invokes the app's
+        // onMessageCallback, which may re-enter the hub — non-recursive lock).
+        manager?._notifyMessages(hub: self, msg: msg)
         _appendHistory(room: room, msg: msg)
         _cleanHistory()
     }
@@ -1096,8 +1124,8 @@ public final class RRCHub {
             buf.append(msg)
             if let cap, buf.count > cap { buf.removeFirst(buf.count - cap) }
             messages[room] = buf
-            manager?._notifyMessages(hub: self, msg: msg)
         }
+        manager?._notifyMessages(hub: self, msg: msg)   // outside the lock (see _recordMessage)
         _appendHistory(room: room, msg: msg)
         _cleanHistory()
     }
@@ -1117,8 +1145,8 @@ public final class RRCHub {
                 messages[r] = buf
                 if r != manager?.activeRoomFor(hub: self) { unreadRooms.insert(r) }
             }
-            manager?._notifyMessages(hub: self, msg: msg)
         }
+        manager?._notifyMessages(hub: self, msg: msg)   // outside the lock (see _recordMessage)
         if let r = target {
             _appendHistory(room: r, msg: msg)
             _cleanHistory()
@@ -1231,9 +1259,7 @@ public final class RRCHub {
         if bodyStr == "(none)" || bodyStr.isEmpty { return (room, []) }
 
         var entries: [(nick: String?, hex: String)] = []
-        // Pattern: "nick (hex12)" or "fullhex32"
-        let pattern = "(?:^|,\\s)(?:(?P1[0-9a-fA-F]{32})|(?P2.+?)\\s\\((?P3[0-9a-fA-F]{12})\\))(?=,\\s|$)"
-        // Use a simpler approach: split on ", " and parse each token
+        // Split on ", " and parse each token as "nick (hex12)" or "fullhex32".
         let tokens = bodyStr.components(separatedBy: ", ")
         let hex32 = try? NSRegularExpression(pattern: "^[0-9a-fA-F]{32}$")
         let nickParen = try? NSRegularExpression(pattern: "^(.+?)\\s\\(([0-9a-fA-F]{12})\\)$")
@@ -1299,9 +1325,11 @@ public final class RRCHub {
     }
 
     internal func _setStatus(_ status: Status, text: String? = nil) {
-        self.status = status
-        if let t = text { statusText = t }
-        manager?._notifyChange(self)
+        _lock.withLock {
+            self.status = status
+            if let t = text { statusText = t }
+        }
+        manager?._notifyChange(self)   // outside the lock (may re-enter the hub)
     }
 
     // MARK: - History behaviour helpers (Phase 22)
@@ -1329,10 +1357,13 @@ public final class RRCHub {
     /// Matches Python `RRCHub._clean_history`.
     internal func _cleanHistory() {
         let now = Date()
-        guard now.timeIntervalSince(_lastHistoryClean) > RRCHub.cleanHistoryInterval else { return }
         let removeAfter = _ephemeralNoticesTimeout()
-        var didClean = false
+        // Do the rate-limit check, the sweep, and the timestamp updates all under
+        // the lock so `_lastHistoryClean`/`cleanLastRemoved` don't race concurrent
+        // record calls from the UI and link threads.
         _lock.withLock {
+            guard now.timeIntervalSince(_lastHistoryClean) > RRCHub.cleanHistoryInterval else { return }
+            var didClean = false
             for r in Array(messages.keys) {
                 let before = messages[r]?.count ?? 0
                 messages[r]?.removeAll { m in
@@ -1342,9 +1373,9 @@ public final class RRCHub {
                 }
                 if (messages[r]?.count ?? 0) < before { didClean = true }
             }
+            _lastHistoryClean = now
+            if didClean { cleanLastRemoved = now }
         }
-        _lastHistoryClean = now
-        if didClean { cleanLastRemoved = now }
     }
 
     // MARK: - Test helpers (accessible via @testable import)
@@ -1477,13 +1508,13 @@ public final class RRCManager {
     }
 
     public func setActive(hub: RRCHub, room: String?) {
-        _activeHub  = hub
-        _activeRoom = room
-        if let r = room { hub.markRead(r) }
+        // _activeHub/_activeRoom are read by activeRoomFor from other threads.
+        _lock.withLock { _activeHub = hub; _activeRoom = room }
+        if let r = room { hub.markRead(r) }   // outside the lock (takes the hub's lock)
     }
 
     public func activeRoomFor(hub: RRCHub) -> String? {
-        _activeHub === hub ? _activeRoom : nil
+        _lock.withLock { _activeHub === hub ? _activeRoom : nil }
     }
 
     // MARK: Callbacks
@@ -1498,7 +1529,8 @@ public final class RRCManager {
 
     /// Called when a hub receives T_WELCOME: re-join all remembered rooms.
     internal func _onWelcome(hub: RRCHub) {
-        for r in Array(hub.rooms) {
+        // Snapshot the rooms Set under the hub's lock (packet handlers mutate it).
+        for r in hub.snapshotRooms() {
             try? hub.joinRoom(r, silent: true)
         }
     }
@@ -1506,7 +1538,9 @@ public final class RRCManager {
     // MARK: Shutdown
 
     public func shutdown() {
-        _lock.withLock { hubs }.forEach { $0.disconnect() }
+        // Break the RRCHub -> manager strong reference too (as removeHub does),
+        // so tearing down a manager without removing hubs first doesn't leak.
+        _lock.withLock { hubs }.forEach { $0.disconnect(); $0.manager = nil }
     }
 
     // MARK: Persistence (CBOR, matches Python's save/load format)
@@ -1548,8 +1582,9 @@ public final class RRCManager {
         let hubList = _lock.withLock { hubs }
         var entries: [(CBOR.Value, CBOR.Value)] = []
         for h in hubList {
-            let joined = Array(h.rooms)
-            let parted = h.messages.keys.filter { !h.rooms.contains($0) }
+            // Snapshot rooms + message-room keys atomically under the hub's lock
+            // (packet handlers mutate both concurrently).
+            let (joined, parted) = h.snapshotRoomsForSave()
             var e: [(CBOR.Value, CBOR.Value)] = [
                 (.text("hash"),           .bytes(h.hubHash)),
                 (.text("dest_name"),      .text(h.destName)),
