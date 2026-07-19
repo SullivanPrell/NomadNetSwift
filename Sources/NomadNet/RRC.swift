@@ -1029,6 +1029,11 @@ public final class RRCHub {
         let encoding: String = { if case .text(let e) = body[RRC.ResField.encoding] { return e } else { return "utf-8" } }()
         let room: String? = { if case .text(let r) = env[RRC.Key.room] { return r.lowercased() } else { return nil } }()
         _lock.withLock {
+            // Sweep expired expectations on insert too (not only in
+            // _resourceConcluded) — a peer sending envelopes that never conclude
+            // would otherwise grow this dictionary without bound.
+            let now = Date()
+            for (k, v) in _resourceExpectations where v.expires < now { _resourceExpectations[k] = nil }
             _resourceExpectations[rid] = ResourceExpectation(kind: kind, size: size, sha256: sha256,
                                                               encoding: encoding, room: room,
                                                               expires: Date().addingTimeInterval(30))
