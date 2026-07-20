@@ -483,6 +483,46 @@ final class FieldEncodingTests: XCTestCase {
         let viaCombined = NomadNetBrowser.encode(fields: ["msg": "hi"], variables: [:])
         XCTAssertEqual(viaConvenience, viaCombined)
     }
+
+    // MARK: - encodeValue(fields:variables:)  (bug 008 fix)
+
+    // The INLINE-map encoder is the correct way to submit fields to a NomadNet node:
+    // it returns a `.map` MsgPack.Value to embed via `Link.request(path:, nativeValue:)`,
+    // so a Python node reads it as a dict. `encode(...) -> Data` + `Link.request(data:)`
+    // double-packs (the Data is re-wrapped as a msgpack `.bytes`) and the node drops the
+    // fields — see swift_devel/bugs/008.
+
+    func testEncodeValueEmptyIsNil() {
+        XCTAssertNil(NomadNetBrowser.encodeValue(fields: [:], variables: [:]))
+    }
+
+    func testEncodeValueReturnsInlineMapNotBytes() {
+        // The crux of the fix: the value must be a `.map` (inline), NOT `.bytes`
+        // (already-packed). A `.bytes` here is exactly the double-pack bug.
+        guard let value = NomadNetBrowser.encodeValue(
+            fields: ["name": "alice"], variables: ["city": "NYC"]
+        ) else {
+            return XCTFail("encodeValue returned nil for non-empty input")
+        }
+        guard case .map(let pairs) = value else {
+            return XCTFail("encodeValue must return a .map (inline), got \(value)")
+        }
+        var dict: [String: String] = [:]
+        for (k, v) in pairs {
+            guard case .string(let key) = k, case .string(let val) = v else { continue }
+            dict[key] = val
+        }
+        XCTAssertEqual(dict["field_name"], "alice")
+        XCTAssertEqual(dict["var_city"], "NYC")
+        XCTAssertEqual(dict.count, 2)
+    }
+
+    func testEncodeValueMatchesEncodeWhenPacked() {
+        // encodeValue(...) packed == encode(...) — same bytes, just not pre-packed.
+        let value = NomadNetBrowser.encodeValue(fields: ["a": "1"], variables: [:])
+        let packed = value.map { MsgPack.encode($0) }
+        XCTAssertEqual(packed, NomadNetBrowser.encode(fields: ["a": "1"], variables: [:]))
+    }
 }
 
 // MARK: - Content detection tests

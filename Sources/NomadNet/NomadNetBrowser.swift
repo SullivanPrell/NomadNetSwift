@@ -189,6 +189,40 @@ open class NomadNetBrowser: @unchecked Sendable {
         return encode(fields: fields, variables: [:])
     }
 
+    /// Build the request data as an INLINE msgpack map (`field_*`/`var_*` → value),
+    /// for submission via `Link.request(path:, nativeValue:)`.
+    ///
+    /// This is the **correct** way to submit form fields / URL variables to a
+    /// NomadNet node. `Link.request` packs the request as
+    /// `msgpack([timestamp, pathHash, data])`, embedding `nativeValue` *inline* —
+    /// so a Python node (the reference `Node.py`) reads it as a `dict` and processes
+    /// the `field_*`/`var_*` keys.
+    ///
+    /// Do NOT use ``encode(fields:variables:)`` + `Link.request(path:, data:)` for
+    /// this: `encode` returns *already-msgpacked* `Data`, and the `data:` overload
+    /// re-wraps it as a msgpack `.bytes` value — double-packing it, so a Python node
+    /// sees `bytes` instead of a `dict` and silently drops every field. (See
+    /// swift_devel/bugs/008.) The `encode`/`encodeFields` `Data` APIs are retained
+    /// only for callers talking to a custom host that expects a pre-packed blob.
+    ///
+    /// Keys are emitted deterministically (fields then variables, each sorted).
+    ///
+    /// - Returns: a `.map` `MsgPack.Value`, or `nil` if both maps are empty
+    ///   (signalling "no request body" — pass `.nil` / omit data for a plain GET).
+    public static func encodeValue(fields: [String: String],
+                                   variables: [String: String]) -> MsgPack.Value? {
+        guard !fields.isEmpty || !variables.isEmpty else { return nil }
+
+        var pairs: [(MsgPack.Value, MsgPack.Value)] = []
+        for (key, value) in fields.sorted(by: { $0.key < $1.key }) {
+            pairs.append((.string("field_\(key)"), .string(value)))
+        }
+        for (key, value) in variables.sorted(by: { $0.key < $1.key }) {
+            pairs.append((.string("var_\(key)"), .string(value)))
+        }
+        return .map(pairs)
+    }
+
     /// Detect whether response bytes are page content (valid UTF-8 / Micron)
     /// rather than raw binary (file download, image, etc.).
     ///

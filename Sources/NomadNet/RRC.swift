@@ -454,10 +454,15 @@ public final class RRCHub {
             _manualDisconnect = false
             _reconnectTask?.cancel(); _reconnectTask = nil
             let text = _reconnectAttempts > 0 ? "Reconnecting (attempt \(_reconnectAttempts))" : "Connecting"
-            _setStatus(.connecting, text: text)
+            // Set state directly: we already hold `_lock`, and `_setStatus` would
+            // re-acquire the same non-recursive NSLock → deadlock. Notify AFTER the
+            // lock is released (below), mirroring `_setStatus`'s own ordering.
+            self.status = .connecting
+            self.statusText = text
             return false
         }
         guard !shouldSkip else { return }
+        manager?._notifyChange(self)   // outside the lock (may re-enter the hub)
         Task { await _connectWorker() }
     }
 

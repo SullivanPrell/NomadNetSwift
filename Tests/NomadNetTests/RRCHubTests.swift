@@ -171,6 +171,28 @@ final class RRCHubInitTests: XCTestCase {
         XCTAssertEqual(h.status, .disconnected)
     }
 
+    // Regression for bug 007: `connect()` acquired the hub's non-recursive NSLock
+    // and, while holding it, called `_setStatus`, which re-acquired the SAME lock →
+    // self-deadlock. `connect()` never returned, so no real link was ever opened.
+    // Every prior RRC test drove the hub via the `_sendHook`/`_onPacket` seam and
+    // never exercised the real connect() path, so the deadlock went uncaught.
+    // Run connect() off-thread with a timeout: pre-fix this hangs and the
+    // expectation is never fulfilled (clean failure, not a wedged suite).
+    func testConnectReturnsAndDoesNotDeadlock() {
+        let h = makeHub()
+        XCTAssertEqual(h.status, .disconnected)
+        let returned = expectation(description: "connect() returns without deadlocking")
+        DispatchQueue.global().async {
+            h.connect()          // pre-fix: deadlocks here forever
+            returned.fulfill()
+        }
+        wait(for: [returned], timeout: 5)
+        // connect() sets .connecting under the lock; the worker (no transport in a
+        // bare manager) then advances to .failed. Either proves the state machine ran.
+        XCTAssertTrue(h.status == .connecting || h.status == .failed,
+                      "connect() should advance past .disconnected, got \(h.status)")
+    }
+
     func testInitialWelcomedFalse() {
         XCTAssertFalse(makeHub().welcomed)
     }
