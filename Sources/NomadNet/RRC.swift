@@ -474,10 +474,13 @@ public final class RRCHub {
             _setStatus(.failed, text: "No transport"); return
         }
 
-        // Request path if unknown
+        // Request path if unknown. Wait up to 20s — path resolution over a real
+        // multi-hop mesh (public transport backbone) can take well over the old 5s,
+        // and it must not be shorter than the identity-recall wait just below it, or
+        // a slow-mesh connect fails with a misleading "Hub identity unknown".
         if !transport.hasPath(to: hubHash) {
             try? transport.requestPath(for: hubHash)
-            for _ in 0..<50 {
+            for _ in 0..<200 {
                 if transport.hasPath(to: hubHash) { break }
                 try? await Task.sleep(nanoseconds: 100_000_000)
             }
