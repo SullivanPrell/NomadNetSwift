@@ -596,3 +596,61 @@ final class NomadNetBrowserStateTests: XCTestCase {
         XCTAssertEqual(NomadNetBrowser.defaultPath, "/page/index.mu")
     }
 }
+
+// MARK: - Page-level response handling
+
+/// `handleResponse` must consume `MicronParser.parsePage(_:)` and expose the
+/// page-level result (colors + anchors) the way the Python browser stores
+/// `page_background_color` / `page_foreground_color` (Browser.py:1247-1267)
+/// and `attr_maps.anchors` (Browser.py:325-326).
+final class NomadNetBrowserPageTests: XCTestCase {
+
+    private let validHash = "abc123def456789012abcdef01234567"
+
+    func testHandleResponseExposesPageColorsAndCurrentPage() {
+        let browser = NomadNetBrowser()
+        let url = NomadNetURL.parse(validHash)!
+
+        var received: MicronPage?
+        var receivedURL: NomadNetURL?
+        browser.onPageParsed = { page, url in
+            received = page
+            receivedURL = url
+        }
+
+        let markup = "#!bg=222\n#!fg=ddd\nHello page"
+        browser.handleResponse(Data(markup.utf8), url: url)
+
+        XCTAssertNotNil(received)
+        XCTAssertEqual(received?.backgroundColor, .rgb3(r: 2, g: 2, b: 2))
+        XCTAssertEqual(received?.foregroundColor, .rgb3(r: 13, g: 13, b: 13))
+        XCTAssertEqual(receivedURL?.destinationHash, url.destinationHash)
+
+        // Mirrors the Python browser retaining page state after load
+        XCTAssertEqual(browser.currentPage?.backgroundColor, .rgb3(r: 2, g: 2, b: 2))
+        XCTAssertEqual(browser.currentPage?.foregroundColor, .rgb3(r: 13, g: 13, b: 13))
+    }
+
+    func testHandleResponseStillFiresLegacyNodesCallback() {
+        let browser = NomadNetBrowser()
+        let url = NomadNetURL.parse(validHash)!
+
+        var legacyNodes: [MicronNode]?
+        browser.onPageLoaded = { nodes, _ in legacyNodes = nodes }
+
+        browser.handleResponse(Data("Hello".utf8), url: url)
+        XCTAssertEqual(legacyNodes?.count, 1)
+    }
+
+    func testHandleResponseBinaryDoesNotTouchCurrentPage() {
+        let browser = NomadNetBrowser()
+        let url = NomadNetURL.parse(validHash)!
+
+        var errored = false
+        browser.onError = { _, _ in errored = true }
+
+        browser.handleResponse(Data([0xff, 0xfe, 0x00, 0x81]), url: url)
+        XCTAssertTrue(errored)
+        XCTAssertNil(browser.currentPage)
+    }
+}

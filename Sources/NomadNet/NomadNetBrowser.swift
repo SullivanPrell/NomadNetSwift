@@ -61,13 +61,25 @@ open class NomadNetBrowser: @unchecked Sendable {
     /// Timeout for link establishment and page response (seconds).
     public var timeout: TimeInterval
 
-    /// Called when a page has been successfully loaded and parsed.
+    /// Called when a page has been successfully loaded and parsed, with the
+    /// full page-level result (nodes + anchors + `#!fg=`/`#!bg=` page colors).
+    /// Parameters: parsed `MicronPage`, the URL that was loaded.
+    public var onPageParsed: ((MicronPage, NomadNetURL) -> Void)?
+
+    /// Legacy nodes-only callback; prefer `onPageParsed`, which also carries
+    /// the page colors and anchors. Fired after `onPageParsed`.
     /// Parameters: parsed Micron AST, the URL that was loaded.
     public var onPageLoaded: (([MicronNode], NomadNetURL) -> Void)?
 
     /// Called when a request fails (link timeout, request failure, etc.).
     /// Parameters: error description, the URL that failed.
     public var onError: ((String, NomadNetURL) -> Void)?
+
+    /// The most recently loaded page — the Swift equivalent of the Python
+    /// browser retaining `page_background_color` / `page_foreground_color`
+    /// (Browser.py:1247-1267) and `attr_maps.anchors` (Browser.py:325-326)
+    /// after a load. `nil` until a page has been handled.
+    public private(set) var currentPage: MicronPage?
 
     // MARK: - Initialiser
 
@@ -140,16 +152,20 @@ open class NomadNetBrowser: @unchecked Sendable {
     ///   - data: Raw bytes from the RNS resource response.
     ///   - url:  The URL that was requested.
     ///
-    /// If the data is valid UTF-8 page content it is parsed with `MicronParser`
-    /// and `onPageLoaded` is called. Otherwise `onError` is called.
+    /// If the data is valid UTF-8 page content it is parsed with
+    /// `MicronParser.parsePage(_:)`, stored in `currentPage`, and
+    /// `onPageParsed` / `onPageLoaded` are called. Otherwise `onError`
+    /// is called and `currentPage` is left untouched.
     public func handleResponse(_ data: Data, url: NomadNetURL) {
         guard Self.isPageContent(data: data) else {
             onError?("Response is binary (not a Micron page)", url)
             return
         }
         let markup = String(data: data, encoding: .utf8) ?? ""
-        let nodes = MicronParser.parse(markup)
-        onPageLoaded?(nodes, url)
+        let page = MicronParser.parsePage(markup)
+        currentPage = page
+        onPageParsed?(page, url)
+        onPageLoaded?(page.nodes, url)
     }
 
     // MARK: - Static utilities
