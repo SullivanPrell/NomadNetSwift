@@ -22,6 +22,13 @@ All notable changes to NomadNetSwift are documented here. This project follows
   equivalent of the Python browser's `page_background_color` /
   `page_foreground_color` and `attr_maps.anchors` state.
 
+### Fixed
+
+- Horizontal-rule fill characters outside ASCII (`-═`, `-•`, `-★`, …) are now
+  kept, matching the Python parser, which accepts any fill char with
+  `ord >= 32` (MicronParser.py:325-336). Previously the `asciiValue` check
+  collapsed every non-ASCII fill to the default `─`.
+
 ### Deprecated
 
 - `MicronParser.parse(_:)` — use `parsePage(_:)`; the nodes-only result

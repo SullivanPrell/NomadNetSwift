@@ -387,8 +387,14 @@ public struct MicronParser {
         if !preEscape && workFirst == "-" {
             let fillChar: Character
             if workChars.count == 2 {
+                // Any single code point with ord >= 32 is a valid fill char
+                // (MicronParser.py:325-336) — only control characters fall back
+                // to the default. Python's len(line) == 2 counts code points,
+                // so a multi-scalar grapheme also falls back.
                 let candidate = workChars[1]
-                fillChar = candidate.asciiValue.map { $0 >= 32 } ?? false ? candidate : "\u{2500}"
+                let scalars = candidate.unicodeScalars
+                let keep = scalars.count == 1 && scalars.first!.value >= 32
+                fillChar = keep ? candidate : "\u{2500}"
             } else {
                 fillChar = "\u{2500}"
             }

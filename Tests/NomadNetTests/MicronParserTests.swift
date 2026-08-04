@@ -217,6 +217,29 @@ final class MicronParserTests: XCTestCase {
         XCTAssertEqual(ch, "\u{2500}")
     }
 
+    func testNonASCIIRuleFillCharsAreKept() {
+        // Python keeps any fill char with ord >= 32 (MicronParser.py:325-336) —
+        // non-ASCII fills like ═ / • / ★ are valid.
+        for fill in ["\u{2550}", "\u{2022}", "\u{2605}"] {
+            let nodes = parse("-" + fill)
+            guard case .horizontalRule(let ch) = nodes.first else {
+                XCTFail("Expected .horizontalRule for fill \(fill)"); return
+            }
+            XCTAssertEqual(String(ch), fill)
+        }
+    }
+
+    func testMultiScalarRuleFillCharFallsBackToDefault() {
+        // Python's len(line) == 2 check counts code points (MicronParser.py:326),
+        // so a multi-scalar grapheme (e.g. a regional-indicator flag) is not a
+        // two-character line and yields the default rule.
+        let nodes = parse("-\u{1F1FA}\u{1F1F8}")
+        guard case .horizontalRule(let ch) = nodes.first else {
+            XCTFail("Expected .horizontalRule"); return
+        }
+        XCTAssertEqual(ch, "\u{2500}")
+    }
+
     // MARK: - Bold formatting
 
     func testBoldToggle() {
