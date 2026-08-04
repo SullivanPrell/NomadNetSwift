@@ -3,6 +3,30 @@
 All notable changes to NomadNetSwift are documented here. This project follows
 [Semantic Versioning](https://semver.org).
 
+## [Unreleased]
+
+### Added
+
+- `MicronParser.parsePage(_:)` returning `MicronPage` — the page-level parse
+  result carrying the node tree, the anchors map (name → node index, bound the
+  way `markup_to_attrmaps` binds `pending_anchors` to rows), and the `#!fg=` /
+  `#!bg=` page colors extracted the way the Python browser does
+  (Browser.py:1247-1267). Page colors also seed the parser's default
+  foreground/background, so plain text inherits them and `` `f ``/`` `b ``
+  reset to them.
+- `MicronNode.anchor` marker nodes are now emitted into the tree ahead of each
+  row bound by an explicit `` `:name `` declaration (previously the parsed
+  anchor name was discarded); heading slugs bind to the `.heading` node itself.
+- `NomadNetBrowser.onPageParsed` callback and `NomadNetBrowser.currentPage`,
+  exposing the page-level result (colors + anchors) to consumers — the Swift
+  equivalent of the Python browser's `page_background_color` /
+  `page_foreground_color` and `attr_maps.anchors` state.
+
+### Deprecated
+
+- `MicronParser.parse(_:)` — use `parsePage(_:)`; the nodes-only result
+  discards page colors and anchors.
+
 ## [1.0.0] — Initial public release
 
 First public release of NomadNetSwift — a Swift port of

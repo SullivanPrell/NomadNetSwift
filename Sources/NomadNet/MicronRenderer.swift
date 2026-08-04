@@ -11,7 +11,7 @@ public protocol MicronRenderer {
 
     /// Render a complete parsed document.
     ///
-    /// - Parameter nodes: The AST produced by `MicronParser.parse(_:)`.
+    /// - Parameter nodes: The AST produced by `MicronParser.parsePage(_:)`.
     /// - Returns: Platform-specific rendered output.
     func render(_ nodes: [MicronNode]) -> Output
 

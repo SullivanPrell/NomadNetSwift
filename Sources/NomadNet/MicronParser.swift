@@ -71,6 +71,12 @@ private struct ParseState {
     // Radio button groups (name → existing group tag)
     var radioGroups: [String: Int] = [:]
 
+    // Anchor names declared but not yet bound to a produced row
+    // (MicronParser.py "pending_anchors", bound at :126-131).
+    // `headingSlug` entries come from MicronParser.py:308-310 and bind to the
+    // heading row itself, so no separate `.anchor` marker node is emitted.
+    var pendingAnchors: [(name: String, headingSlug: Bool)] = []
+
     func currentStyle() -> MicronStyle {
         MicronStyle(
             bold: bold,
@@ -94,36 +100,110 @@ private struct ParseState {
     }
 }
 
+// MARK: - MicronPage
+
+/// The complete result of parsing a Micron page.
+///
+/// Carries everything the Python browser derives from a page besides the
+/// widget tree: the `#!fg=` / `#!bg=` page colors (Browser.py:1247-1267) and
+/// the anchors map bound by `markup_to_attrmaps` (MicronParser.py:126-131,
+/// exposed at :142). Returned as one value so no consumer can drop them.
+public struct MicronPage: Equatable {
+    /// The parsed document AST.
+    public let nodes: [MicronNode]
+
+    /// Anchor name → index into `nodes` of the row the anchor is bound to
+    /// (the Python `anchors[name] = row_index` mapping). Rows bound by an
+    /// explicit `` `:name `` declaration are immediately preceded by a
+    /// zero-width `.anchor` marker node; heading slugs bind to the
+    /// `.heading` node itself, which carries the slug.
+    public let anchors: [String: Int]
+
+    /// Page-wide default foreground from a `#!fg=` directive, if present and valid.
+    public let foregroundColor: MicronColor?
+
+    /// Page-wide default background from a `#!bg=` directive, if present and valid.
+    public let backgroundColor: MicronColor?
+
+    public init(
+        nodes: [MicronNode],
+        anchors: [String: Int] = [:],
+        foregroundColor: MicronColor? = nil,
+        backgroundColor: MicronColor? = nil
+    ) {
+        self.nodes = nodes
+        self.anchors = anchors
+        self.foregroundColor = foregroundColor
+        self.backgroundColor = backgroundColor
+    }
+}
+
 // MARK: - MicronParser
 
 /// Parses Micron markup into an array of `MicronNode` AST nodes.
 ///
 /// Usage:
 /// ```swift
-/// let nodes = MicronParser.parse(markupString)
+/// let page = MicronParser.parsePage(markupString)
 /// ```
 public struct MicronParser {
 
     // MARK: Public API
 
-    /// Parse a complete Micron document and return its AST.
+    /// Parse a complete Micron document, including page-level metadata.
     ///
     /// - Parameter markup: Raw Micron markup text.
-    /// - Returns: Array of `MicronNode` values representing the document.
-    public static func parse(_ markup: String) -> [MicronNode] {
+    /// - Returns: A `MicronPage` carrying the AST, the anchors map, and any
+    ///   `#!fg=` / `#!bg=` page colors.
+    public static func parsePage(_ markup: String) -> MicronPage {
+        // The Python browser extracts #!fg=/#!bg= (Browser.py:1247-1267) and
+        // passes them to markup_to_attrmaps (Browser.py:1269), which seeds
+        // default_state with them (MicronParser.py:104-107 → :39-43) so plain
+        // text inherits the page colors and `f/`b reset to them.
+        let pageFg = pageColorDirective("#!fg=", in: markup)
+        let pageBg = pageColorDirective("#!bg=", in: markup)
+
         var state = ParseState()
+        if let fg = pageFg { state.fgColor = fg; state.defaultFg = fg }
+        if let bg = pageBg { state.bgColor = bg; state.defaultBg = bg }
+
         var nodes: [MicronNode] = []
+        var anchors: [String: Int] = [:]
 
         let lines = markup.split(separator: "\n", omittingEmptySubsequences: false)
 
         for rawLine in lines {
             let line = String(rawLine)
+            let produced: [MicronNode]
             if line.isEmpty {
-                nodes.append(.emptyLine)
+                // Python renders empty lines as urwid.Text("") — a produced
+                // row, so pending anchors bind to it (MicronParser.py:120-131).
+                produced = [.emptyLine]
             } else {
-                let produced = parseLine(line, state: &state)
-                nodes.append(contentsOf: produced)
+                produced = parseLine(line, state: &state)
             }
+            guard !produced.isEmpty else { continue }
+
+            // Pending anchors bind to the next produced row; first declaration
+            // wins (MicronParser.py:126-131). For explicit `:name declarations
+            // a zero-width `.anchor` marker is emitted ahead of the bound row
+            // as an in-tree scroll target; heading slugs bind to the `.heading`
+            // node itself, which already carries the slug.
+            if !state.pendingAnchors.isEmpty {
+                var markerNames: [String] = []
+                var bindNames: [String] = []
+                for entry in state.pendingAnchors
+                where !entry.name.isEmpty && anchors[entry.name] == nil && !bindNames.contains(entry.name) {
+                    bindNames.append(entry.name)
+                    if !entry.headingSlug { markerNames.append(entry.name) }
+                }
+                for name in markerNames { nodes.append(.anchor(name: name)) }
+                let rowIndex = nodes.count
+                for name in bindNames { anchors[name] = rowIndex }
+                state.pendingAnchors = []
+            }
+
+            nodes.append(contentsOf: produced)
         }
 
         // If we were still in table mode at EOF, flush the buffer
@@ -134,8 +214,46 @@ public struct MicronParser {
                 maxWidth: state.tableMaxWidth
             ))
         }
+        // Anchors still pending at EOF are dropped, as in Python (they are
+        // never bound at MicronParser.py:126-131 and stay absent from the map).
 
-        return nodes
+        return MicronPage(
+            nodes: nodes,
+            anchors: anchors,
+            foregroundColor: pageFg,
+            backgroundColor: pageBg
+        )
+    }
+
+    /// Parse a complete Micron document and return its AST only.
+    ///
+    /// - Parameter markup: Raw Micron markup text.
+    /// - Returns: Array of `MicronNode` values representing the document.
+    @available(*, deprecated, message: "Use parsePage(_:) — parse(_:) discards page colors and anchors")
+    public static func parse(_ markup: String) -> [MicronNode] {
+        return parsePage(markup).nodes
+    }
+
+    // MARK: - Page color directives
+
+    /// Extract a page-level color directive value (`#!fg=` / `#!bg=`).
+    ///
+    /// Mirrors Browser.py:1247-1267: the first occurrence anywhere in the
+    /// document is used, the value runs to the next newline, and only exact
+    /// lengths of 3 or 6 are accepted. A directive on the final line without
+    /// a trailing newline is ignored (Python's find("\n") returns -1, which
+    /// fails both length checks).
+    static func pageColorDirective(_ directive: String, in markup: String) -> MicronColor? {
+        guard let found = markup.range(of: directive) else { return nil }
+        guard let newline = markup.range(of: "\n", range: found.upperBound..<markup.endIndex) else {
+            return nil
+        }
+        let value = String(markup[found.upperBound..<newline.lowerBound])
+        switch value.count {
+        case 3: return parseColor3(value)
+        case 6: return parseColor6(value)
+        default: return nil
+        }
     }
 
     // MARK: - Line-level parsing
@@ -256,8 +374,11 @@ public struct MicronParser {
             let content = String(workChars[idx...])
             guard !content.isEmpty else { return [] }
 
-            let slug = slugify(content)
             let spans = makeOutput(line: Array(content), state: &state, preEscape: false)
+            // Heading slugs auto-register as anchors (MicronParser.py:308-310);
+            // the slug stays pending even when the heading renders no output.
+            let slug = slugify(content)
+            if !slug.isEmpty { state.pendingAnchors.append((name: slug, headingSlug: true)) }
             guard !spans.isEmpty else { return [] }
             return [.heading(level: level, spans: spans, depth: level, slug: slug)]
         }
@@ -368,7 +489,10 @@ public struct MicronParser {
                     state.alignment = state.defaultAlignment
 
                 case ":":
-                    // Anchor declaration: `:<name>
+                    // Anchor declaration `:<name>, terminated by any character
+                    // outside [A-Za-z0-9_-] (MicronParser.py:657-667). Zero-width:
+                    // contributes no output; parsePage binds the pending name to
+                    // this line's row (MicronParser.py:126-131).
                     let nameStart = i + 1
                     var nameEnd = nameStart
                     while nameEnd < line.count && (line[nameEnd].isLetter || line[nameEnd].isNumber || line[nameEnd] == "_" || line[nameEnd] == "-") {
@@ -376,14 +500,9 @@ public struct MicronParser {
                     }
                     let anchorName = String(line[nameStart..<nameEnd])
                     if !anchorName.isEmpty {
-                        flushPart()
-                        output.append(.text("", style: state.currentStyle())) // zero-width placeholder
-                        // We embed the anchor as a text span with an empty string — renderers
-                        // that need the anchor name should use the heading slug mechanism instead.
-                        // A dedicated `.anchor` node is emitted only when parsing standalone `:`
-                        // lines. Here we note it via a state side-channel for upstream callers.
+                        state.pendingAnchors.append((name: anchorName, headingSlug: false))
                     }
-                    i = nameEnd; mode = .text; flushPart(); continue
+                    i = nameEnd; mode = .text; continue
 
                 case "<":
                     // Form field: `<flags|name`data>

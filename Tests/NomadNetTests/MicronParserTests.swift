@@ -6,7 +6,7 @@ final class MicronParserTests: XCTestCase {
     // MARK: - Helpers
 
     private func parse(_ s: String) -> [MicronNode] {
-        MicronParser.parse(s)
+        MicronParser.parsePage(s).nodes
     }
 
     /// Assert that nodes contains exactly one `.line` and return its spans.
@@ -854,5 +854,155 @@ final class MicronParserTests: XCTestCase {
         XCTAssertEqual(rules.count, 1)
         XCTAssertEqual(tables.count, 1)
         XCTAssertGreaterThanOrEqual(empty.count, 1)
+    }
+}
+
+// MARK: - Page-level parse results (MicronPage)
+
+/// Tests for `MicronParser.parsePage(_:)` — the page-level seam that carries
+/// `#!bg=` / `#!fg=` page colors (Browser.py:1247-1267) and the anchors map
+/// (MicronParser.py:126-131) alongside the node tree.
+final class MicronPageTests: XCTestCase {
+
+    // MARK: Page color directives (#!bg= / #!fg=)
+
+    func testPageColorDirectivesExtracted() {
+        // Browser.py:1247-1267 — value runs from the directive to the next
+        // newline and is accepted only at exactly 3 or 6 characters.
+        let page = MicronParser.parsePage("#!bg=222\n#!fg=ddd\nHello")
+        XCTAssertEqual(page.backgroundColor, .rgb3(r: 2, g: 2, b: 2))
+        XCTAssertEqual(page.foregroundColor, .rgb3(r: 13, g: 13, b: 13))
+    }
+
+    func testPageColorDirectiveSixDigit() {
+        let page = MicronParser.parsePage("#!bg=2244cc\nHello")
+        XCTAssertEqual(page.backgroundColor, .rgb6(r: 0x22, g: 0x44, b: 0xcc))
+        XCTAssertNil(page.foregroundColor)
+    }
+
+    func testPageColorDirectiveGreyscale() {
+        let page = MicronParser.parsePage("#!fg=g25\nHello")
+        XCTAssertEqual(page.foregroundColor, .grey(percent: 25))
+    }
+
+    func testPageColorDirectiveInvalidLengthIgnored() {
+        // Neither 2 nor 5 characters is a valid value length (Browser.py:1251-1256).
+        XCTAssertNil(MicronParser.parsePage("#!bg=22\nHello").backgroundColor)
+        XCTAssertNil(MicronParser.parsePage("#!bg=12345\nHello").backgroundColor)
+    }
+
+    func testPageColorDirectiveWithoutTrailingNewlineIgnored() {
+        // Browser.py:1250 requires a newline after the directive
+        // (str.find("\n") == -1 fails both length checks).
+        XCTAssertNil(MicronParser.parsePage("#!bg=222").backgroundColor)
+    }
+
+    func testPageColorsSeedDefaultSpanStyle() {
+        // markup_to_attrmaps passes the page colors into default_state
+        // (MicronParser.py:104-107, 39-43) so plain text inherits them.
+        let page = MicronParser.parsePage("#!fg=abc\n#!bg=123\nplain text")
+        guard case .line(let spans, _, _)? = page.nodes.first else {
+            XCTFail("Expected .line, got \(page.nodes.first as Any)"); return
+        }
+        guard case .text(_, let style)? = spans.first else {
+            XCTFail("Expected .text span"); return
+        }
+        XCTAssertEqual(style.fgColor, .rgb3(r: 10, g: 11, b: 12))
+        XCTAssertEqual(style.bgColor, .rgb3(r: 1, g: 2, b: 3))
+    }
+
+    func testDirectiveLinesRenderAsComments() {
+        // The directive line itself starts with "#" and is dropped as a comment.
+        let page = MicronParser.parsePage("#!bg=222\nHello")
+        XCTAssertEqual(page.nodes.count, 1)
+    }
+
+    func testPageWithoutDirectivesHasNilColors() {
+        let page = MicronParser.parsePage("Hello")
+        XCTAssertNil(page.foregroundColor)
+        XCTAssertNil(page.backgroundColor)
+    }
+}
+
+// MARK: - Anchors
+
+/// Tests for anchor collection: `` `:name `` declarations (MicronParser.py:657-667)
+/// and heading slugs (MicronParser.py:308-310) bind to the next produced row
+/// (MicronParser.py:126-131), first declaration wins.
+final class MicronAnchorTests: XCTestCase {
+
+    private func anchorNodes(_ nodes: [MicronNode]) -> [String] {
+        nodes.compactMap { if case .anchor(let name) = $0 { return name }; return nil }
+    }
+
+    func testStandaloneAnchorBindsToNextRow() {
+        let page = MicronParser.parsePage("First\n`:target\nSecond")
+        // Marker node precedes the row the anchor is bound to
+        XCTAssertEqual(page.nodes.count, 3)
+        guard case .anchor(let name) = page.nodes[1] else {
+            XCTFail("Expected .anchor at index 1, got \(page.nodes[1])"); return
+        }
+        XCTAssertEqual(name, "target")
+        // Dict points at the bound content row (Python row_index semantics)
+        XCTAssertEqual(page.anchors["target"], 2)
+        guard case .line = page.nodes[2] else {
+            XCTFail("Expected bound .line at index 2"); return
+        }
+    }
+
+    func testInlineAnchorBindsToOwnLine() {
+        let page = MicronParser.parsePage("Some `:here text")
+        guard case .anchor("here") = page.nodes[0] else {
+            XCTFail("Expected .anchor first, got \(page.nodes[0])"); return
+        }
+        XCTAssertEqual(page.anchors["here"], 1)
+        guard case .line(let spans, _, _) = page.nodes[1] else {
+            XCTFail("Expected .line at index 1"); return
+        }
+        // The `:here sequence is zero-width in the rendered text
+        let text = spans.compactMap { if case .text(let t, _) = $0 { return t }; return nil }.joined()
+        XCTAssertEqual(text, "Some  text")
+    }
+
+    func testHeadingSlugRegisteredAsAnchor() {
+        // Heading slugs bind to the heading row itself (MicronParser.py:308-311
+        // pending + :126-131 binding); no separate marker node is emitted —
+        // the .heading node carries its slug.
+        let page = MicronParser.parsePage(">My Heading\nbody")
+        XCTAssertEqual(page.anchors["my-heading"], 0)
+        guard case .heading = page.nodes[0] else {
+            XCTFail("Expected .heading at index 0, got \(page.nodes[0])"); return
+        }
+        XCTAssertTrue(anchorNodes(page.nodes).isEmpty)
+    }
+
+    func testAnchorBindsToEmptyLine() {
+        // Python binds pending anchors to empty rows too (urwid.Text("") is a widget)
+        let page = MicronParser.parsePage("`:x\n\nY")
+        XCTAssertEqual(anchorNodes(page.nodes), ["x"])
+        XCTAssertEqual(page.anchors["x"], 1)
+        XCTAssertEqual(page.nodes[1], .emptyLine)
+    }
+
+    func testDuplicateAnchorFirstDeclarationWins() {
+        // MicronParser.py:129 — "if name and name not in anchors"
+        let page = MicronParser.parsePage("`:dup\nA\n`:dup\nB")
+        XCTAssertEqual(page.anchors["dup"], 1)
+        // No second marker node for an already-bound name
+        XCTAssertEqual(anchorNodes(page.nodes), ["dup"])
+    }
+
+    func testAnchorAtEOFRemainsUnbound() {
+        // Pending anchors with no following row are dropped (Python never binds them)
+        let page = MicronParser.parsePage("text\n`:end")
+        XCTAssertNil(page.anchors["end"])
+        XCTAssertTrue(anchorNodes(page.nodes).isEmpty)
+    }
+
+    func testMultipleAnchorsBindToSameRow() {
+        let page = MicronParser.parsePage("`:one\n`:two\nRow")
+        XCTAssertEqual(anchorNodes(page.nodes), ["one", "two"])
+        XCTAssertEqual(page.anchors["one"], 2)
+        XCTAssertEqual(page.anchors["two"], 2)
     }
 }
