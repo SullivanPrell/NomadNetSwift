@@ -28,7 +28,7 @@ import Foundation
 /// Unit-test friendly: all request routing is exercisable without a live transport.
 public class NNNode {
 
-    // MARK: – Constants (Python: Node.JOB_INTERVAL, START_ANNOUNCE_DELAY)
+    // MARK:–Constants (Python: Node.JOB_INTERVAL, START_ANNOUNCE_DELAY)
 
     /// Background job run interval in seconds.
     ///
@@ -48,7 +48,7 @@ public class NNNode {
     /// The default index page path requested by browsers with no explicit path.
     public static let defaultPagePath: String = "/page/index.mu"
 
-    // MARK: – Default page Micron content
+    // MARK:–Default page Micron content
 
     /// Auto-generated home page served when `/page/index.mu` is not registered.
     ///
@@ -70,14 +70,14 @@ public class NNNode {
         You are not authorised to carry out the request.
         """
 
-    // MARK: – Properties
+    // MARK:–Properties
 
     /// Display name of this node.
     ///
     /// Used as `app_data` (UTF-8 encoded) in RNS announces.
     public let name: String
 
-    // MARK: – Callbacks
+    // MARK:–Callbacks
 
     /// Invoked when a peer link is established.
     ///
@@ -91,7 +91,7 @@ public class NNNode {
     /// Python: `peer_disconnected(link)`.
     public var onPeerDisconnected: ((Data) -> Void)?
 
-    // MARK: – Private state
+    // MARK:–Private state
 
     /// Registered page request handlers, keyed by request path.
     private var pageHandlers: [String: (Data?) -> Data?] = [:]
@@ -99,19 +99,19 @@ public class NNNode {
     /// Registered file request handlers, keyed by request path.
     private var fileHandlers: [String: (Data?) -> Data?] = [:]
 
-    // MARK: – Init
+    // MARK:–Init
 
     /// Create a new node with the given display name.
     public init(name: String) {
         self.name = name
     }
 
-    // MARK: – Page registration (Python: register_pages + destination.register_request_handler)
+    // MARK:–Page registration (Python: register_pages + destination.register_request_handler)
 
     /// Register a handler for page requests at `path`.
     ///
     /// - Parameters:
-    ///   - path:      The request path, e.g. `"/page/welcome.mu"`.
+    ///   - path:      The request path, for example, `"/page/welcome.mu"`.
     ///   - generator: Closure receiving optional request body; returns page bytes or `nil`.
     public func registerPage(_ path: String, generator: @escaping (Data?) -> Data?) {
         pageHandlers[path] = generator
@@ -127,7 +127,7 @@ public class NNNode {
         pageHandlers.keys.sorted()
     }
 
-    // MARK: – File registration (Python: register_files + destination.register_request_handler)
+    // MARK:–File registration (Python: register_files + destination.register_request_handler)
 
     /// Register a handler for file requests at `path`.
     public func registerFile(_ path: String, generator: @escaping (Data?) -> Data?) {
@@ -144,7 +144,7 @@ public class NNNode {
         fileHandlers.keys.sorted()
     }
 
-    // MARK: – Request dispatch (Python: serve_page / serve_file / serve_default_index)
+    // MARK:–Request dispatch (Python: serve_page / serve_file / serve_default_index)
 
     /// Handle an incoming page request.
     ///
@@ -171,7 +171,7 @@ public class NNNode {
         return fileHandlers[path]?(requestData)
     }
 
-    // MARK: – Announce (Python: Node.announce)
+    // MARK:–Announce (Python: Node.announce)
 
     /// Returns the `app_data` bytes to include in an RNS announce.
     ///
@@ -180,7 +180,7 @@ public class NNNode {
         name.data(using: .utf8) ?? Data()
     }
 
-    // MARK: – Peer lifecycle (Python: peer_connected / peer_disconnected)
+    // MARK:–Peer lifecycle (Python: peer_connected / peer_disconnected)
 
     /// Called when a peer link is established to this node.
     ///

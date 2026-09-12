@@ -14,7 +14,7 @@
 /// (SwiftUI views, attributed strings, plain text, HTML, etc.).
 ///
 /// This protocol defines only the interface; concrete renderers are provided
-/// by downstream targets (e.g. RetiOS).
+/// by downstream targets (for example, RetiOS).
 public protocol MicronRenderer {
     /// The output type produced by this renderer.
     associatedtype Output

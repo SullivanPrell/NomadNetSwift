@@ -54,7 +54,7 @@ public struct NomadNetURL: Equatable, Sendable {
     /// URL variables parsed from the `` `name=value|… `` tail of a link target.
     ///
     /// Keyed by variable name without the `var_` prefix. When sent over RNS the
-    /// keys are prefixed with `var_` in the msgpack request map — mirroring
+    /// keys are prefixed with `var_` in the msgpack request map—mirroring
     /// Python's `request_data["var_<name>"]` (Browser.retrieve_url / handle_link).
     public let variables: [String: String]
 
@@ -71,9 +71,9 @@ public struct NomadNetURL: Equatable, Sendable {
     /// Parse a NomadNet URL string.
     ///
     /// Accepted forms:
-    /// - `<20hex>`                     — destination hash only; path defaults to `/page/index.mu`
-    /// - `<20hex>:`                    — empty path; defaults to `/page/index.mu`
-    /// - `<20hex>:<path>`              — fully specified URL
+    /// - `<20hex>`—destination hash only; path defaults to `/page/index.mu`
+    /// - `<20hex>:`—empty path; defaults to `/page/index.mu`
+    /// - `<20hex>:<path>`—fully specified URL
     ///
     /// Returns `nil` for any malformed input (wrong hash length, non-hex
     /// characters, etc.).
@@ -81,7 +81,7 @@ public struct NomadNetURL: Equatable, Sendable {
         guard !urlString.isEmpty else { return nil }
 
         // Split off any inline variables appended after a backtick
-        // e.g.  "abc...:/page/index.mu`name=alice|city=NYC"
+        // for example,  "abc...:/page/index.mu`name=alice|city=NYC"
         // The portion before the backtick is the destination/path; the portion
         // after is a "|"-separated list of "name=value" URL variables.
         let stripped: String
@@ -144,7 +144,7 @@ public struct NomadNetURL: Equatable, Sendable {
     ///
     /// When URL variables are present they are appended as a backtick-separated,
     /// `|`-joined `name=value` list (keys sorted for deterministic output), so
-    /// that `parse(url.toString())` round-trips — matching the link-target form
+    /// that `parse(url.toString())` round-trips—matching the link-target form
     /// produced by Python's `Browser.marked_link`.
     public func toString() -> String {
         let base = destinationHash.hexString + ":" + path

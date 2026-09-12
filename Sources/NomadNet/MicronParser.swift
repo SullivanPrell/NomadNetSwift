@@ -15,9 +15,9 @@
 /// ## Line-level directives (first character of the raw line)
 /// | First char | Meaning |
 /// |---|---|
-/// | `#` | Comment — line is discarded |
-/// | `\` | Escape — the `\` is stripped; remainder rendered literally (no further markup) |
-/// | `<` | Section reset — depth becomes 0; rest of line is re-parsed |
+/// | `#` | Comment—line is discarded |
+/// | `\` | Escape—the `\` is stripped; remainder rendered literally (no further markup) |
+/// | `<` | Section reset—depth becomes 0; rest of line is re-parsed |
 /// | `>`, `>>`, `>>>` | Heading level 1/2/3 |
 /// | `-` or `-x` | Horizontal rule (optional char after `-`, default `─`) |
 /// | `` `= `` | Toggle literal mode |
@@ -30,13 +30,13 @@
 /// | `` `! `` | Toggle bold |
 /// | `` `_ `` | Toggle underline |
 /// | `` `* `` | Toggle italic |
-/// | `` `F `` *rgb* | Set foreground colour (3-digit hex) |
-/// | `` `FT `` *rrggbb* | Set foreground colour (6-digit hex) |
+/// | `` `F `` *rgb* | Set foreground color (3-digit hex) |
+/// | `` `FT `` *rrggbb* | Set foreground color (6-digit hex) |
 /// | `` `f `` | Reset foreground to default |
-/// | `` `B `` *rgb* | Set background colour (3-digit hex) |
-/// | `` `BT `` *rrggbb* | Set background colour (6-digit hex) |
+/// | `` `B `` *rgb* | Set background color (3-digit hex) |
+/// | `` `BT `` *rrggbb* | Set background color (6-digit hex) |
 /// | `` `b `` | Reset background to default |
-/// | `` `` `` `` | Reset all formatting (bold/underline/italic + colours + alignment) |
+/// | `` `` `` `` | Reset all formatting (bold/underline/italic + colors + alignment) |
 /// | `` `c `` | Align center |
 /// | `` `l `` | Align left |
 /// | `` `r `` | Align right |
@@ -61,7 +61,7 @@ private struct ParseState {
     // Section nesting
     var depth: Int = 0
 
-    // Current colour state
+    // Current color state
     var fgColor: MicronColor = .default
     var bgColor: MicronColor = .default
     var defaultFg: MicronColor = .default
@@ -189,7 +189,7 @@ public struct MicronParser {
             let line = String(rawLine)
             let produced: [MicronNode]
             if line.isEmpty {
-                // Python renders empty lines as urwid.Text("") — a produced
+                // Python renders empty lines as urwid.Text("")—a produced
                 // row, so pending anchors bind to it (MicronParser.py:120-131).
                 produced = [.emptyLine]
             } else {
@@ -219,7 +219,7 @@ public struct MicronParser {
             nodes.append(contentsOf: produced)
         }
 
-        // If we were still in table mode at EOF, flush the buffer
+        // If still in table mode at EOF, flush the buffer
         if state.tableMode, !state.tableBuffer.isEmpty {
             nodes.append(.table(
                 rows: state.tableBuffer.map { [$0] },
@@ -402,7 +402,7 @@ public struct MicronParser {
             let fillChar: Character
             if workChars.count == 2 {
                 // Any single code point with ord >= 32 is a valid fill char
-                // (MicronParser.py:325-336) — only control characters fall back
+                // (MicronParser.py:325-336)—only control characters fall back
                 // to the default. Python's len(line) == 2 counts code points,
                 // so a multi-scalar grapheme also falls back.
                 let candidate = workChars[1]
@@ -438,7 +438,7 @@ public struct MicronParser {
         var escape = preEscape
         var i = 0
 
-        // Helper — flush the current text accumulator into a span
+        // Helper—flush the current text accumulator into a span
         func flushPart() {
             if !part.isEmpty {
                 output.append(.text(part, style: state.currentStyle()))
@@ -613,7 +613,7 @@ public struct MicronParser {
 
     /// Parse a link after the opening `[`.
     ///
-    /// Format: `label\`url\`fields]` — returns (link, charactersConsumed).
+    /// Format: `label\`url\`fields]`—returns (link, charactersConsumed).
     private static func parseLink(
         line: [Character],
         afterBracket: Int,
@@ -660,7 +660,7 @@ public struct MicronParser {
 
     /// Parse a form field after the opening `<`.
     ///
-    /// Format: `flags|name\`data>` — returns (field, charactersConsumed).
+    /// Format: `flags|name\`data>`—returns (field, charactersConsumed).
     private static func parseField(
         line: [Character],
         afterBracket: Int,
@@ -731,9 +731,9 @@ public struct MicronParser {
         return (field, consumed)
     }
 
-    // MARK: - Colour parsers
+    // MARK: - Color parsers
 
-    /// Parse a 3-character hex colour string ("rgb") into a `MicronColor`.
+    /// Parse a 3-character hex color string ("rgb") into a `MicronColor`.
     static func parseColor3(_ hex: String) -> MicronColor? {
         let h = Array(hex)
         guard h.count == 3 else { return nil }
@@ -748,7 +748,7 @@ public struct MicronParser {
         return .rgb3(r: r, g: g, b: b)
     }
 
-    /// Parse a 6-character hex colour string ("rrggbb") into a `MicronColor`.
+    /// Parse a 6-character hex color string ("rrggbb") into a `MicronColor`.
     static func parseColor6(_ hex: String) -> MicronColor? {
         guard hex.count == 6 else { return nil }
         let s = hex

@@ -15,18 +15,18 @@ import Foundation
 /// Minimal CBOR (RFC 7049) encoder and decoder for the types used by the RRC protocol.
 ///
 /// Supported types:
-/// - `uint`  — unsigned integer (0 … UInt64.max)
-/// - `bytes` — byte string
-/// - `text`  — UTF-8 text string
-/// - `array` — heterogeneous array
-/// - `map`   — ordered map of (Value, Value) pairs
-/// - `bool`  — true / false
-/// - `null`  — null
+/// - `uint`—unsigned integer (0 … UInt64.max)
+/// - `bytes`—byte string
+/// - `text`—UTF-8 text string
+/// - `array`—heterogeneous array
+/// - `map`—ordered map of (Value, Value) pairs
+/// - `bool`—true / false
+/// - `null`—null
 ///
 /// Corresponds to the `cbor_py` library used by NomadNet (`nomadnet/vendor/cbor.py`).
 public enum CBOR {
 
-    // MARK: – Value type
+    // MARK:–Value type
 
     /// Decoded CBOR value.
     public indirect enum Value: Equatable {
@@ -63,7 +63,7 @@ public enum CBOR {
         }
     }
 
-    // MARK: – Errors
+    // MARK:–Errors
 
     /// Failures raised while decoding CBOR.
     public enum CBORError: Error {
@@ -73,7 +73,7 @@ public enum CBOR {
         case trailingData
     }
 
-    // MARK: – Encode
+    // MARK:–Encode
 
     /// Encode a `Value` to CBOR bytes.
     public static func encode(_ value: Value) -> Data {
@@ -122,7 +122,7 @@ public enum CBOR {
         }
     }
 
-    // MARK: – Decode
+    // MARK:–Decode
 
     /// Decode CBOR bytes to a `Value`.
     /// - Throws: `CBORError` if the data is malformed or unsupported.
@@ -208,7 +208,7 @@ public enum CBOR {
         }
     }
 
-    // MARK: – Private helpers
+    // MARK:–Private helpers
 
     private static func writeHead(major: UInt8, value: UInt64, into out: inout Data) {
         let mt = major << 5
@@ -240,7 +240,7 @@ public enum CBOR {
         }
     }
 
-    // MARK: – Multi-item decode
+    // MARK:–Multi-item decode
 
     /// Decode every consecutive CBOR value in `data` and return them as an array.
     ///

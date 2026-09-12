@@ -15,19 +15,19 @@
 
 // MARK: - Color
 
-/// A Micron colour value.
+/// A Micron color value.
 ///
-/// Colours are specified in one of three formats matching the Python parser:
-/// - `.default`  — inherit / terminal default
-/// - `.rgb3(r,g,b)` — 3-nibble hex (each component 0–F)
-/// - `.rgb6(...)` — 6-digit hex (e.g. "ff8800")
-/// - `.grey(percent)` — greyscale, "g" + 2-digit decimal percentage (0–99)
+/// Colors are specified in one of three formats matching the Python parser:
+/// - `.default`—inherit / terminal default
+/// - `.rgb3(r,g,b)`—3-nibble hex (each component 0–F)
+/// - `.rgb6(...)`—6-digit hex (for example, "ff8800")
+/// - `.grey(percent)`—greyscale, "g" + 2-digit decimal percentage (0–99)
 public enum MicronColor: Equatable {
-    /// Terminal / inherited default colour.
+    /// Terminal / inherited default color.
     case `default`
-    /// Three-nibble RGB hex colour (one hex digit per channel, 0–F).
+    /// Three-nibble RGB hex color (one hex digit per channel, 0–F).
     case rgb3(r: UInt8, g: UInt8, b: UInt8)
-    /// Six-digit full RGB hex colour (two hex digits per channel, 00–FF).
+    /// Six-digit full RGB hex color (two hex digits per channel, 00–FF).
     case rgb6(r: UInt8, g: UInt8, b: UInt8)
     /// Greyscale expressed as an integer percentage (0–99), prefixed by "g" in Micron.
     case grey(percent: UInt8)
@@ -58,9 +58,9 @@ public struct MicronStyle: Equatable {
     public var strikethrough: Bool
     /// Whether the text blinks.
     public var blink: Bool
-    /// Foreground colour.
+    /// Foreground color.
     public var fgColor: MicronColor
-    /// Background colour.
+    /// Background color.
     public var bgColor: MicronColor
     /// Horizontal alignment.
     public var alignment: MicronAlignment
@@ -240,12 +240,12 @@ public enum MicronNode: Equatable {
     ///
     /// After the Python implementation delegates actual table layout to
     /// `MarkdownToMicron.format_table_raw`, each formatted row is re-parsed;
-    /// here we store the raw row strings for downstream renderers.
+    /// here the raw row strings are stored for downstream renderers.
     case table(rows: [[String]], alignment: MicronAlignment?, maxWidth: Int?)
 
     /// A transclusion / embedded sub-page.
     case partial(MicronPartial)
 
-    /// An anchor declaration (`` `:<name> ``) — zero-width position marker.
+    /// An anchor declaration (`` `:<name> ``)—zero-width position marker.
     case anchor(name: String)
 }

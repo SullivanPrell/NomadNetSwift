@@ -16,7 +16,7 @@ import ReticulumSwift
 /// A pending or completed NomadNet page request.
 ///
 /// Carries the target URL, any form field values, and the wall-clock
-/// time at which the request was created — matching the Python browser's
+/// time at which the request was created—matching the Python browser's
 /// tracking of `destination_hash`, `path`, and `request_data`.
 public struct PageRequest: Sendable {
 
@@ -95,7 +95,7 @@ open class NomadNetBrowser: @unchecked Sendable {
     /// Parameters: error description, the URL that failed.
     public var onError: ((String, NomadNetURL) -> Void)?
 
-    /// The most recently loaded page — the Swift equivalent of the Python
+    /// The most recently loaded page—the Swift equivalent of the Python
     /// browser retaining `page_background_color` / `page_foreground_color`
     /// (Browser.py:1247-1267) and `attr_maps.anchors` (Browser.py:325-326)
     /// after a load. `nil` until a page has been handled.
@@ -152,7 +152,7 @@ open class NomadNetBrowser: @unchecked Sendable {
 
     /// Perform the actual page request.
     ///
-    /// The base implementation does nothing — it is an override point for
+    /// The base implementation does nothing—it is an override point for
     /// production subclasses that wire in real `Link` + `Transport`.
     /// Unit tests exercise all surrounding logic without overriding this.
     ///
@@ -194,8 +194,8 @@ open class NomadNetBrowser: @unchecked Sendable {
     /// a NomadNet node.
     ///
     /// The Python browser sends a `dict` (its `request_data`) with keys prefixed:
-    /// - `field_<name>` — for widget/form field values
-    /// - `var_<name>`   — for URL variable substitutions (the `` `a=1|b=2 `` tail)
+    /// - `field_<name>`—for widget/form field values
+    /// - `var_<name>`—for URL variable substitutions (the `` `a=1|b=2 `` tail)
     ///
     /// Keys are emitted in a deterministic order (fields then variables, each
     /// sorted by name). Pass two empty maps to get `nil` back (signals "no
@@ -230,13 +230,13 @@ open class NomadNetBrowser: @unchecked Sendable {
     ///
     /// This is the **correct** way to submit form fields / URL variables to a
     /// NomadNet node. `Link.request` packs the request as
-    /// `msgpack([timestamp, pathHash, data])`, embedding `nativeValue` *inline* —
-    /// so a Python node (the reference `Node.py`) reads it as a `dict` and processes
+    /// `msgpack([timestamp, pathHash, data])`, embedding `nativeValue` *inline*—so
+    /// a Python node (the reference `Node.py`) reads it as a `dict` and processes
     /// the `field_*`/`var_*` keys.
     ///
     /// Do NOT use ``encode(fields:variables:)`` + `Link.request(path:, data:)` for
     /// this: `encode` returns *already-msgpacked* `Data`, and the `data:` overload
-    /// re-wraps it as a msgpack `.bytes` value — double-packing it, so a Python node
+    /// re-wraps it as a msgpack `.bytes` value—double-packing it, so a Python node
     /// sees `bytes` instead of a `dict` and silently drops every field. (See
     /// swift_devel/bugs/008.) The `encode`/`encodeFields` `Data` APIs are retained
     /// only for callers talking to a custom host that expects a pre-packed blob.
@@ -244,7 +244,7 @@ open class NomadNetBrowser: @unchecked Sendable {
     /// Keys are emitted deterministically (fields then variables, each sorted).
     ///
     /// - Returns: a `.map` `MsgPack.Value`, or `nil` if both maps are empty
-    ///   (signalling "no request body" — pass `.nil` / omit data for a plain GET).
+    ///   (signalling "no request body"—pass `.nil` / omit data for a plain GET).
     public static func encodeValue(fields: [String: String],
                                    variables: [String: String]) -> MsgPack.Value? {
         guard !fields.isEmpty || !variables.isEmpty else { return nil }
@@ -264,7 +264,7 @@ open class NomadNetBrowser: @unchecked Sendable {
     ///
     /// The Python browser simply calls `.decode("utf-8")` on the response
     /// and renders it; if decoding fails it falls through to file handling.
-    /// We mirror that: valid UTF-8 → page content; invalid → binary.
+    /// This port mirrors that: valid UTF-8 → page content; invalid → binary.
     ///
     /// - Parameter data: Raw response bytes.
     /// - Returns: `true` if the data appears to be UTF-8 page content.

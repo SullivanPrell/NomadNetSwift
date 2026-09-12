@@ -17,7 +17,7 @@ import Foundation
 /// Corresponds to `nomadnet/util.py`.
 public enum NomadNetUtil {
 
-    // MARK: – strip_modifiers
+    // MARK:–strip_modifiers
 
     /// Characters that are known to render incorrectly in many fonts and should be
     /// replaced with a space.
@@ -59,7 +59,7 @@ public enum NomadNetUtil {
         }
         t = String(String.UnicodeScalarView(scalars))
 
-        // Additional regex passes matching Python's post-processing
+        // Additional regular expression passes matching Python's post-processing
         let opts = String.CompareOptions.regularExpression
 
         // Variation Selectors (U+FE00–U+FE0F)
@@ -81,7 +81,7 @@ public enum NomadNetUtil {
         return t.trimmingCharacters(in: .whitespaces)
     }
 
-    // MARK: – sanitize_name
+    // MARK:–sanitize_name
 
     /// Unicode blocks to strip from names.
     ///
@@ -157,7 +157,7 @@ public enum NomadNetUtil {
             // Line / paragraph separators → plain space
             case .lineSeparator, .paragraphSeparator:
                 scalars.append(" ")
-            // Spacing combining mark (Mc, e.g. Indic vowel signs) → keep
+            // Spacing combining mark (Mc, for example, Indic vowel signs) → keep
             case .spacingMark:
                 scalars.append(scalar)
             // Everything else: marks, symbols, format chars, controls → strip
@@ -180,11 +180,11 @@ public enum NomadNetUtil {
         return result
     }
 
-    // MARK: – strip_micron
+    // MARK:–strip_micron
 
     /// Remove all Micron formatting markup from `text` (backtick-prefix tags).
     ///
-    /// Strips colour/background codes, style tags (`!`, `*`, `_`, `=`),
+    /// Strips color/background codes, style tags (`!`, `*`, `_`, `=`),
     /// fg/bg reset tags, and navigation tags.
     ///
     /// Corresponds to Python `strip_micron(text)`.
@@ -203,7 +203,7 @@ public enum NomadNetUtil {
         return t
     }
 
-    // MARK: – strip_escaped_micron
+    // MARK:–strip_escaped_micron
 
     /// Remove all escaped Micron markup from `text` (pilcrow ¦ prefix tags).
     ///
@@ -223,7 +223,7 @@ public enum NomadNetUtil {
         return t
     }
 
-    // MARK: – unescape_micron
+    // MARK:–unescape_micron
 
     /// Converts escaped Micron tags back to active ones.
     ///
@@ -243,10 +243,10 @@ public enum NomadNetUtil {
         return t
     }
 
-    // MARK: – strip_non_formatting_tags
+    // MARK:–strip_non_formatting_tags
 
     /// Remove Micron navigation/layout tags (`<`, `>`, `` `{ ``, `` `r ``,
-    /// `` `c ``, `` `l ``) while preserving colour/style formatting tags.
+    /// `` `c ``, `` `l ``) while preserving color/style formatting tags.
     ///
     /// Corresponds to Python `strip_non_formatting_tags(text)`.
     public static func stripNonFormattingTags(_ text: String) -> String {

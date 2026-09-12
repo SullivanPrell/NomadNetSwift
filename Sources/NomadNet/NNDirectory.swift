@@ -18,7 +18,7 @@ import ReticulumSwift
 /// Corresponds to Python `DirectoryEntry` in `nomadnet/Directory.py`.
 public struct DirectoryEntry {
 
-    // MARK: – Trust level constants (Python: WARNING, UNTRUSTED, UNKNOWN, TRUSTED)
+    // MARK:–Trust level constants (Python: WARNING, UNTRUSTED, UNKNOWN, TRUSTED)
 
     /// Trust a directory entry is held at.
     public enum TrustLevel: UInt8, Equatable, Comparable, Codable {
@@ -33,7 +33,7 @@ public struct DirectoryEntry {
         }
     }
 
-    // MARK: – Delivery mode constants (Python: DIRECT, PROPAGATED)
+    // MARK:–Delivery mode constants (Python: DIRECT, PROPAGATED)
 
     /// Route messages to the entry are sent over.
     public enum Delivery: UInt8, Equatable, Codable {
@@ -41,7 +41,7 @@ public struct DirectoryEntry {
         case propagated = 0x02
     }
 
-    // MARK: – Properties
+    // MARK:–Properties
 
     /// 10-byte truncated identity hash of the destination.
     public var sourceHash:         Data
@@ -67,7 +67,7 @@ public struct DirectoryEntry {
     /// Optional user notes.
     public var notes:              String
 
-    // MARK: – Init
+    // MARK:–Init
 
     /// Creates an entry for `sourceHash`.
     public init(
@@ -126,7 +126,7 @@ public struct AnnounceRecord {
 /// - Persists entries to disk via msgpack (through the `save(to:)` / `load(from:)` API).
 public class NNDirectory {
 
-    // MARK: – Constants
+    // MARK:–Constants
 
     /// Maximum number of announces kept in each stream.
     ///
@@ -136,12 +136,12 @@ public class NNDirectory {
     /// Announce handler aspect filter for NomadNet nodes.
     public static let aspectFilter: String = "nomadnetwork.node"
 
-    // MARK: – Directory entries
+    // MARK:–Directory entries
 
     /// The primary map from source hash → entry.
     public private(set) var directoryEntries: [Data: DirectoryEntry] = [:]
 
-    // MARK: – Announce streams
+    // MARK:–Announce streams
 
     /// Node announces (newest first).
     ///
@@ -158,12 +158,12 @@ public class NNDirectory {
     /// Python: `self._pn_announces`.
     public private(set) var pnAnnounces:   [AnnounceRecord] = []
 
-    // MARK: – Init
+    // MARK:–Init
 
     /// Creates an empty directory.
     public init() { }
 
-    // MARK: – Announce management
+    // MARK:–Announce management
 
     /// Adds a new node announce to the stream.
     public func addNodeAnnounce(_ record: AnnounceRecord) {
@@ -189,14 +189,14 @@ public class NNDirectory {
         }
     }
 
-    // MARK: – Combined stream (Python: Directory.announce_stream property)
+    // MARK:–Combined stream (Python: Directory.announce_stream property)
 
     /// All announce records across node, peer, and PN streams.
     public var announceStream: [AnnounceRecord] {
         nodeAnnounces + peerAnnounces + pnAnnounces
     }
 
-    // MARK: – Entry management (Python: remember / forget / find)
+    // MARK:–Entry management (Python: remember / forget / find)
 
     /// Store or overwrite an entry.
     ///
@@ -219,7 +219,7 @@ public class NNDirectory {
         directoryEntries[sourceHash]
     }
 
-    // MARK: – Trust / display queries
+    // MARK:–Trust / display queries
 
     /// Trust level for `sourceHash`.
     ///
@@ -244,7 +244,7 @@ public class NNDirectory {
         directoryEntries[sourceHash]?.preferredDelivery ?? .direct
     }
 
-    // MARK: – Known nodes (Python: Directory.known_nodes / number_of_known_nodes)
+    // MARK:–Known nodes (Python: Directory.known_nodes / number_of_known_nodes)
 
     /// All entries that host a NomadNet node, sorted by trust level (desc) then name.
     ///
@@ -269,7 +269,7 @@ public class NNDirectory {
         directoryEntries.values.filter { $0.hostsNode }.count
     }
 
-    // MARK: – Announce stream updates (Python: node_announce_received / lxmf_announce_received)
+    // MARK:–Announce stream updates (Python: node_announce_received / lxmf_announce_received)
 
     /// Record a NomadNet node announce.
     ///
@@ -331,9 +331,9 @@ public class NNDirectory {
         }
     }
 
-    // MARK: – Disk persistence (Python: save_to_disk / load_from_disk via msgpack)
+    // MARK:–Disk persistence (Python: save_to_disk / load_from_disk via msgpack)
     //
-    // The Python implementation uses msgpack. We use a simple msgpack-compatible
+    // The Python implementation uses msgpack. This port uses a simple msgpack-compatible
     // encoding via the NomadNet/ReticulumSwift MsgPack helpers. Each entry is
     // packed as an array: [sourceHash, displayName, trustLevel, hostsNode,
     //                      preferredDelivery, identify, sortRank, notes]

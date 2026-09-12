@@ -513,7 +513,7 @@ final class RRCHubJoinPartTests: XCTestCase {
         let id = Identity()
         let mgr = makeManager(identity: id)
         let h = mgr.addHub(hash: Data(repeating: 0xCD, count: 16))
-        // Simulate our own join: put room in pendingJoins
+        // Simulate a local join: put room in pendingJoins
         h.pendingJoins.insert("lobby")
         h.onPacket(makeJoinedPkt(src: id.hash, room: "lobby", members: [id.hash]))
         XCTAssertTrue(h.rooms.contains("lobby"))
@@ -791,7 +791,7 @@ final class RRCHubOutboundTests: XCTestCase {
         let h = makeHub()
         h.sendHook = { _ in }
         try h.sendCommand(text: "/list")
-        // No assertion needed — just verify it doesn't throw
+        // No assertion needed—just verify it doesn't throw
     }
 
     func testSendCommandNonSlashThrows() {
@@ -1210,7 +1210,7 @@ final class RRCHubHistoryBehaviorTests: XCTestCase {
         wHub.appendHistory(room: "gr",
             msg: RRCMessage(kind: "system", room: "gr", src: nil, nick: nil, text: "joined", ts: baseTs + 1))
 
-        // Reader: filter = true (default) — system messages should be dropped
+        // Reader: filter = true (default)—system messages should be dropped
         let rMgr = RRCManager(identity: Identity(), storagePath: dir)
         let rHub = rMgr.addHub(hash: Data(repeating: 0xAB, count: 16))
         _ = rHub.addRoom("gr")
@@ -1358,9 +1358,9 @@ final class RRCHubHistoryBehaviorTests: XCTestCase {
     func testCleanHistoryDoesNotCleanNonEphemeralMessages() {
         let mgr = makeManager()
         let h = mgr.addHub(hash: Data(repeating: 0xCD, count: 16))
-        mgr.rrcEphemeralNoticesTimeoutOverride = 0.001  // very short — everything old gets swept
+        mgr.rrcEphemeralNoticesTimeoutOverride = 0.001  // very short—everything old gets swept
         _ = h.addRoom("ne")
-        // A "msg" kind message with a very old timestamp — should NOT be swept
+        // A "msg" kind message with a very old timestamp—should NOT be swept
         let oldTs = Int64((Date().timeIntervalSince1970 - 9999.0) * 1000)
         h.testInjectMessage(room: "ne",
                              msg: RRCMessage(kind: "msg", room: "ne",
@@ -1384,11 +1384,11 @@ final class RRCHubHistoryBehaviorTests: XCTestCase {
                                              src: nil, nick: nil, text: "x", ts: oldTs))
         h.cleanHistory()
 
-        // Inject "x2" (also old) immediately after — clock just updated, cooldown not expired
+        // Inject "x2" (also old) immediately after—clock just updated, cooldown not expired
         h.testInjectMessage(room: "cool",
                              msg: RRCMessage(kind: "system", room: "cool",
                                              src: nil, nick: nil, text: "x2", ts: oldTs))
-        h.cleanHistory()  // second call: < 5s since last → skipped
+        h.cleanHistory()  // second call: < 5 seconds since last → skipped
 
         XCTAssertEqual(h.getMessages(room: "cool").count, 1,
                        "cooldown prevents immediate re-sweep; x2 should still be present")

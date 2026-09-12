@@ -228,8 +228,8 @@ final class MicronParserTests: XCTestCase {
     }
 
     func testNonASCIIRuleFillCharsAreKept() {
-        // Python keeps any fill char with ord >= 32 (MicronParser.py:325-336) —
-        // non-ASCII fills like ═ / • / ★ are valid.
+        // Python keeps any fill char with ord >= 32 (MicronParser.py:325-336)—non-ASCII
+        // fills like ═ / • / ★ are valid.
         for fill in ["\u{2550}", "\u{2022}", "\u{2605}"] {
             let nodes = parse("-" + fill)
             guard case .horizontalRule(let ch) = nodes.first else {
@@ -241,7 +241,7 @@ final class MicronParserTests: XCTestCase {
 
     func testMultiScalarRuleFillCharFallsBackToDefault() {
         // Python's len(line) == 2 check counts code points (MicronParser.py:326),
-        // so a multi-scalar grapheme (e.g. a regional-indicator flag) is not a
+        // so a multi-scalar grapheme (for example, a regional-indicator flag) is not a
         // two-character line and yields the default rule.
         let nodes = parse("-\u{1F1FA}\u{1F1F8}")
         guard case .horizontalRule(let ch) = nodes.first else {
@@ -300,15 +300,15 @@ final class MicronParserTests: XCTestCase {
             if case .text(let t, let s) = span, t == " normal" { return s }
             return nil
         }
-        // If we find the normal span, it should not be bold
+        // If the normal span is found, it should not be bold
         if let s = normalSpans.first {
             XCTAssertFalse(s.bold)
         }
-        // At minimum we should have more than one span (bold + normal)
+        // At minimum there should be more than one span (bold + normal)
         XCTAssertGreaterThan(spans.count, 1)
     }
 
-    // MARK: - Colour: foreground 3-digit
+    // MARK: - Color: foreground 3-digit
 
     func testForegroundColor3Digit() {
         let nodes = parse("`Fff0text")
@@ -332,7 +332,7 @@ final class MicronParserTests: XCTestCase {
                       "Expected .default fg after `f reset, got \(defaultColored)")
     }
 
-    // MARK: - Colour: foreground 6-digit
+    // MARK: - Color: foreground 6-digit
 
     func testForegroundColor6Digit() {
         let nodes = parse("`FTff8800text")
@@ -345,7 +345,7 @@ final class MicronParserTests: XCTestCase {
                       "Expected rgb6(ff,88,00) in \(colors)")
     }
 
-    // MARK: - Colour: background 3-digit
+    // MARK: - Color: background 3-digit
 
     func testBackgroundColor3Digit() {
         let nodes = parse("`B123text")
@@ -441,7 +441,7 @@ final class MicronParserTests: XCTestCase {
     }
 
     func testLinkEmptyURLProducesNoLink() {
-        // `[label``] — empty URL, should not create a link
+        // `[label``]—empty URL, should not create a link
         let nodes = parse("`[label``]")
         let spans = assertSingleLine(nodes)
         let links = spans.compactMap { span -> MicronLink? in
@@ -799,7 +799,7 @@ final class MicronParserTests: XCTestCase {
     func testLineWithOnlyFormattingCodeProducesEmptySpan() {
         // A line that is only a formatting command (no visible text) still should not crash
         let nodes = parse("`c")
-        // The alignment command set center but produced no text span — no node
+        // The alignment command set center but produced no text span—no node
         // This is implementation-defined; just ensure no crash
         _ = nodes
     }
@@ -892,7 +892,7 @@ final class MicronParserTests: XCTestCase {
 
 // MARK: - Page-level parse results (MicronPage)
 
-/// Tests for `MicronParser.parsePage(_:)` — the page-level seam that carries
+/// Tests for `MicronParser.parsePage(_:)`—the page-level seam that carries
 /// `#!bg=` / `#!fg=` page colors (Browser.py:1247-1267) and the anchors map
 /// (MicronParser.py:126-131) alongside the node tree.
 final class MicronPageTests: XCTestCase {
@@ -900,7 +900,7 @@ final class MicronPageTests: XCTestCase {
     // MARK: Page color directives (#!bg= / #!fg=)
 
     func testPageColorDirectivesExtracted() {
-        // Browser.py:1247-1267 — value runs from the directive to the next
+        // Browser.py:1247-1267—value runs from the directive to the next
         // newline and is accepted only at exactly 3 or 6 characters.
         let page = MicronParser.parsePage("#!bg=222\n#!fg=ddd\nHello")
         XCTAssertEqual(page.backgroundColor, .rgb3(r: 2, g: 2, b: 2))
@@ -999,8 +999,8 @@ final class MicronAnchorTests: XCTestCase {
 
     func testHeadingSlugRegisteredAsAnchor() {
         // Heading slugs bind to the heading row itself (MicronParser.py:308-311
-        // pending + :126-131 binding); no separate marker node is emitted —
-        // the .heading node carries its slug.
+        // pending + :126-131 binding); no separate marker node is emitted—the
+        // .heading node carries its slug.
         let page = MicronParser.parsePage(">My Heading\nbody")
         XCTAssertEqual(page.anchors["my-heading"], 0)
         guard case .heading = page.nodes[0] else {
@@ -1018,7 +1018,7 @@ final class MicronAnchorTests: XCTestCase {
     }
 
     func testDuplicateAnchorFirstDeclarationWins() {
-        // MicronParser.py:129 — "if name and name not in anchors"
+        // MicronParser.py:129—"if name and name not in anchors"
         let page = MicronParser.parsePage("`:dup\nA\n`:dup\nB")
         XCTAssertEqual(page.anchors["dup"], 1)
         // No second marker node for an already-bound name

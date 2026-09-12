@@ -1,14 +1,13 @@
 # NomadNetSwift
 
 > **Reticulum and Nomad Network are the work of [Mark Qvist](https://github.com/markqvist).** This
-> is an independent, community Swift implementation of NomadNet — **not an official Reticulum
+> is an independent, community Swift implementation of NomadNet—**not an official Reticulum
 > project**. The canonical project and reference (Python) implementation live at
 > **[github.com/markqvist/NomadNet](https://github.com/markqvist/NomadNet)**, part of the broader
 > **[Reticulum](https://github.com/markqvist/Reticulum)** network created by Mark; please look
 > there first to understand the protocol itself.
 
-A Swift port of [NomadNet](https://github.com/markqvist/NomadNet) (Nomad Network)
-— decentralized, encrypted pages and services over Reticulum.
+A Swift port of [NomadNet](https://github.com/markqvist/NomadNet) (Nomad Network)—decentralized, encrypted pages and services carried over Reticulum.
 
 [![Platforms](https://img.shields.io/badge/platforms-iOS%2016%2B%20%7C%20macOS%2013%2B-blue)](#requirements)
 [![Swift](https://img.shields.io/badge/Swift-5.9-orange)](https://swift.org)
@@ -18,12 +17,12 @@ A Swift port of [NomadNet](https://github.com/markqvist/NomadNet) (Nomad Network
 
 Nomad Network is a resilient, server-optional "web" that runs entirely over
 Reticulum: nodes host pages written in **Micron** markup and serve files; clients
-browse them by cryptographic address. It works over any Reticulum interface —
-including LoRa and packet radio — with no DNS, no central servers, and end-to-end
+browse them by cryptographic address. It works over any Reticulum interface—including
+LoRa and packet radio—with no DNS, no central servers, and end-to-end
 encryption throughout.
 
 **NomadNetSwift** brings that to Swift: a Micron parser, a page/file-serving
-node, a browser, RRC (Remote Resource Calls), and a node directory — all
+node, a browser, RRC (Remote Resource Calls), and a node directory—all
 wire-compatible with the Python reference, so a Swift client can browse a Python
 node and vice versa.
 
@@ -31,8 +30,8 @@ This is part of the [ReticulumSwift stack](https://github.com/SullivanPrell/Reti
 
 ## Status
 
-NomadNetSwift implements NomadNet — Micron markup, the browser, the node
-(`NNNode`), RRC, and the node directory (`NNDirectory`) — and is wire-compatible
+NomadNetSwift implements NomadNet—Micron markup, the browser, the node
+(`NNNode`), RRC, and the node directory (`NNDirectory`)—and is wire-compatible
 with the Python reference. Covered by 470 unit tests (~83% line coverage).
 
 ## Requirements
@@ -92,8 +91,8 @@ node directory.
 
 ## Documentation
 
-- [docs/USAGE.md](docs/USAGE.md) — Micron, nodes, browser, RRC, directory
-- [CONTRIBUTING.md](CONTRIBUTING.md) — dev workflow and conventions
+- [docs/USAGE.md](docs/USAGE.md)—Micron, nodes, browser, RRC, directory
+- [CONTRIBUTING.md](CONTRIBUTING.md)—dev workflow and conventions
 
 ## Testing
 

@@ -28,7 +28,7 @@ final class StripModifiersTests: XCTestCase {
     }
 
     func testStripsCombiningMark() {
-        // U+0301 is COMBINING ACUTE ACCENT (Mn) — should be removed
+        // U+0301 is COMBINING ACUTE ACCENT (Mn)—should be removed
         let s = "e\u{0301}" // "é" in NFD form
         let result = NomadNetUtil.stripModifiers(s)
         // The base letter 'e' stays; the combining accent is stripped
@@ -36,7 +36,7 @@ final class StripModifiersTests: XCTestCase {
     }
 
     func testStripsSkinToneModifier() {
-        // U+1F3FB EMOJI MODIFIER FITZPATRICK TYPE-1-2 — should be stripped
+        // U+1F3FB EMOJI MODIFIER FITZPATRICK TYPE-1-2—should be stripped
         let s = "👋\u{1F3FB}"
         let result = NomadNetUtil.stripModifiers(s)
         // The base emoji stays; the modifier is stripped
@@ -44,7 +44,7 @@ final class StripModifiersTests: XCTestCase {
     }
 
     func testStripsVariationSelector() {
-        // U+FE0F is VARIATION SELECTOR-16 (makes emoji presentation) — should be stripped
+        // U+FE0F is VARIATION SELECTOR-16 (makes emoji presentation)—should be stripped
         let s = "✔\u{FE0F}"
         let result = NomadNetUtil.stripModifiers(s)
         XCTAssertFalse(result?.contains("\u{FE0F}") ?? false)
@@ -75,7 +75,7 @@ final class StripModifiersTests: XCTestCase {
     }
 
     func testStripsZeroWidthJoiner() {
-        // U+200D ZERO WIDTH JOINER (Cf) — should be stripped
+        // U+200D ZERO WIDTH JOINER (Cf)—should be stripped
         let s = "a\u{200D}b"
         let result = NomadNetUtil.stripModifiers(s)
         XCTAssertEqual(result, "ab")
@@ -117,8 +117,8 @@ final class SanitizeNameTests: XCTestCase {
     func testZalgoStripped() {
         // NFKC composes a + U+0301 (acute) → á (precomposed letter Ll, kept).
         // Additional combining marks that don't form precomposed letters are stripped.
-        // U+0483 COMBINING CYRILLIC TITLO (Mn) — doesn't compose with 'a' → stripped.
-        // U+0488 COMBINING CYRILLIC MILLION SIGN (Me) — enclosing mark → stripped.
+        // U+0483 COMBINING CYRILLIC TITLO (Mn)—doesn't compose with 'a' → stripped.
+        // U+0488 COMBINING CYRILLIC MILLION SIGN (Me)—enclosing mark → stripped.
         let s = "a\u{0301}\u{0483}\u{0488}"  // a + acute + cyrillic titlo + cyrillic million sign
         let result = NomadNetUtil.sanitizeName(s)
         // NFKC composes a+0301 → á; 0483 and 0488 don't compose → stripped → "á"
@@ -175,7 +175,7 @@ final class StripMicronTests: XCTestCase {
     }
 
     func testStripsNavigationTags() {
-        // `<, `>, `{ — all stripped
+        // `<, `>, `{—all stripped
         let s = "`<Go back`>`{section}"
         let result = NomadNetUtil.stripMicron(s)
         XCTAssertEqual(result, "Go backsection}")
@@ -272,13 +272,13 @@ final class StripNonFormattingTagsTests: XCTestCase {
     }
 
     func testPreservesColorTag() {
-        // `F1A2 is a formatting tag — should NOT be removed
+        // `F1A2 is a formatting tag—should NOT be removed
         let s = "`F1A2hello"
         XCTAssertEqual(NomadNetUtil.stripNonFormattingTags(s), "`F1A2hello")
     }
 
     func testPreservesStyleTag() {
-        // `! is a style tag — should NOT be removed
+        // `! is a style tag—should NOT be removed
         let s = "`!bold text"
         XCTAssertEqual(NomadNetUtil.stripNonFormattingTags(s), "`!bold text")
     }

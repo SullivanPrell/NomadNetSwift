@@ -7,7 +7,7 @@ All notable changes to NomadNetSwift are documented here. This project follows
 
 ### Added
 
-- `MicronParser.parsePage(_:)` returning `MicronPage` — the page-level parse
+- `MicronParser.parsePage(_:)` returning `MicronPage`—the page-level parse
   result carrying the node tree, the anchors map (name → node index, bound the
   way `markup_to_attrmaps` binds `pending_anchors` to rows), and the `#!fg=` /
   `#!bg=` page colors extracted the way the Python browser does
@@ -18,7 +18,7 @@ All notable changes to NomadNetSwift are documented here. This project follows
   row bound by an explicit `` `:name `` declaration (previously the parsed
   anchor name was discarded); heading slugs bind to the `.heading` node itself.
 - `NomadNetBrowser.onPageParsed` callback and `NomadNetBrowser.currentPage`,
-  exposing the page-level result (colors + anchors) to consumers — the Swift
+  exposing the page-level result (colors + anchors) to consumers—the Swift
   equivalent of the Python browser's `page_background_color` /
   `page_foreground_color` and `attr_maps.anchors` state.
 
@@ -31,12 +31,12 @@ All notable changes to NomadNetSwift are documented here. This project follows
 
 ### Deprecated
 
-- `MicronParser.parse(_:)` — use `parsePage(_:)`; the nodes-only result
+- `MicronParser.parse(_:)`—use `parsePage(_:)`; the nodes-only result
   discards page colors and anchors.
 
-## [1.0.0] — Initial public release
+## [1.0.0]—initial public release
 
-First public release of NomadNetSwift — a Swift port of
+First public release of NomadNetSwift—a Swift port of
 [NomadNet](https://github.com/markqvist/NomadNet) (Nomad Network), wire-compatible
 with the Python reference.
 
@@ -44,11 +44,11 @@ with the Python reference.
 
 - **Micron** markup parser → renderable AST (`MicronNode` / `MicronSpan`), with
   helpers for stripping codes and slugifying.
-- **NNNode** — host Micron pages and downloadable files with on-demand generators,
+- **NNNode**—host Micron pages and downloadable files with on-demand generators,
   announce data, and link-peer tracking.
-- **NomadNetBrowser** — fetch and navigate content with page history
+- **NomadNetBrowser**—fetch and navigate content with page history
   (back / forward / reload) and `NomadNetURL` address parsing.
-- **RRC** — Remote Resource Calls for invoking remote services.
-- **NNDirectory** — a directory of known nodes learned from announces.
+- **RRC**—Remote Resource Calls for invoking remote services.
+- **NNDirectory**—a directory of known nodes learned from announces.
 
 Covered by 470 unit tests (~83% line coverage). Built on ReticulumSwift 1.0.0.

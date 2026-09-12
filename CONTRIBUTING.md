@@ -1,7 +1,7 @@
 # Contributing to NomadNetSwift
 
 NomadNetSwift targets **protocol parity with Python NomadNet**
-(<https://github.com/markqvist/NomadNet>) — Micron rendering, node serving, and
+(<https://github.com/markqvist/NomadNet>)—Micron rendering, node serving, and
 browsing must match the reference.
 
 ## Ground rules
@@ -9,7 +9,7 @@ browsing must match the reference.
 - **Test-driven**: failing test first, implement to green, commit. Keep the full
   `swift test` suite green (no regressions).
 - **Parity**: source comments reference the corresponding Python files
-  (`Node.py`, `MicronParser.py`, `Browser.py`, `RRC.py`) — keep logic aligned.
+  (`Node.py`, `MicronParser.py`, `Browser.py`, `RRC.py`)—keep logic aligned.
 
 ## Setup
 
@@ -41,6 +41,8 @@ RETICULUM_LOCAL_DEPS=1 swift test
 - Standard Swift PascalCase for types, camelCase for members.
 - Every major component has a `[Component]Tests.swift`.
 - New behavior must align with the Python reference and ship with tests.
+- Tests are XCTest, not swift-testing.
+- Style: [Google Swift Style Guide](https://google.github.io/swift/).
 
 ## Submitting changes
 

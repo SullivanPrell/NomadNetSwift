@@ -17,7 +17,7 @@ import ReticulumSwift
 final class NomadNetURLTests: XCTestCase {
 
     // The Python Browser uses a colon separator: "<32-hex-chars>:<path>"
-    // e.g. "abc123def456789012abcdef01234567:/page/index.mu"
+    // for example, "abc123def456789012abcdef01234567:/page/index.mu"
     // 16 bytes = 32 hex chars (RNS.Reticulum.TRUNCATED_HASHLENGTH // 8 * 2 = 128 // 8 * 2)
 
     private let validHash  = "abc123def456789012abcdef01234567"   // 32 hex chars = 16 bytes
@@ -72,12 +72,12 @@ final class NomadNetURLTests: XCTestCase {
     }
 
     func testParseTooShortHashReturnsNil() {
-        // 20 chars — too short for a 16-byte (32-hex) hash
+        // 20 chars—too short for a 16-byte (32-hex) hash
         XCTAssertNil(NomadNetURL.parse("abc123def456789012ab"))
     }
 
     func testParseTooLongHashReturnsNil() {
-        // 34 chars — too long for a 16-byte (32-hex) hash
+        // 34 chars—too long for a 16-byte (32-hex) hash
         XCTAssertNil(NomadNetURL.parse("abc123def456789012abcdef012345670a"))
     }
 
@@ -95,7 +95,7 @@ final class NomadNetURLTests: XCTestCase {
     }
 
     func testParseVeryLongHashComponentReturnsNil() {
-        // 40 hex chars = 20 bytes — wrong length (need exactly 16 bytes / 32 hex chars)
+        // 40 hex chars = 20 bytes—wrong length (need exactly 16 bytes / 32 hex chars)
         let longHash = String(repeating: "a", count: 40)
         XCTAssertNil(NomadNetURL.parse(longHash))
     }
@@ -402,7 +402,7 @@ final class FieldEncodingTests: XCTestCase {
     //   "field_<name>" for form field values
     //   "var_<name>"   for URL variable values
     // The dict is passed as the `data` parameter to link.request().
-    // In Swift, we encode this as msgpack.
+    // In Swift, this is encoded as msgpack.
 
     func testEncodeEmptyFieldsIsNil() {
         // Empty fields → nil data (no request body)
@@ -457,7 +457,7 @@ final class FieldEncodingTests: XCTestCase {
     // MARK: - encode(fields:variables:)
 
     // The combined encoder emits "field_<name>" for form fields and
-    // "var_<name>" for URL variables — matching Python's request_data dict.
+    // "var_<name>" for URL variables—matching Python's request_data dict.
 
     private func decodeStringMap(_ data: Data?) -> [String: String]? {
         guard let data, let decoded = try? MsgPack.decode(data),
@@ -500,7 +500,7 @@ final class FieldEncodingTests: XCTestCase {
     // it returns a `.map` MsgPack.Value to embed via `Link.request(path:, nativeValue:)`,
     // so a Python node reads it as a dict. `encode(...) -> Data` + `Link.request(data:)`
     // double-packs (the Data is re-wrapped as a msgpack `.bytes`) and the node drops the
-    // fields — see swift_devel/bugs/008.
+    // fields—see swift_devel/bugs/008.
 
     func testEncodeValueEmptyIsNil() {
         XCTAssertNil(NomadNetBrowser.encodeValue(fields: [:], variables: [:]))
@@ -528,7 +528,7 @@ final class FieldEncodingTests: XCTestCase {
     }
 
     func testEncodeValueMatchesEncodeWhenPacked() {
-        // encodeValue(...) packed == encode(...) — same bytes, just not pre-packed.
+        // encodeValue(...) packed == encode(...)—same bytes, just not pre-packed.
         let value = NomadNetBrowser.encodeValue(fields: ["a": "1"], variables: [:])
         let packed = value.map { MsgPack.encode($0) }
         XCTAssertEqual(packed, NomadNetBrowser.encode(fields: ["a": "1"], variables: [:]))
@@ -547,7 +547,7 @@ final class ContentDetectionTests: XCTestCase {
     }
 
     func testEmptyDataIsPageContent() {
-        // Empty response — treat as page content (blank page)
+        // Empty response—treat as page content (blank page)
         XCTAssertTrue(NomadNetBrowser.isPageContent(data: Data()))
     }
 

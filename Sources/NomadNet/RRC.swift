@@ -63,7 +63,7 @@ public enum RRC {
 
     // The members below are the reference's own map-key names.
     // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
-    /// Integer CBOR map keys — K_V, K_T, K_ID, K_TS, K_SRC, K_ROOM, K_BODY, K_NICK.
+    /// Integer CBOR map keys—K_V, K_T, K_ID, K_TS, K_SRC, K_ROOM, K_BODY, K_NICK.
     public enum Key {
         public static let version: Int = 0
         public static let type:    Int = 1
@@ -77,7 +77,7 @@ public enum RRC {
 
     // The members below are the reference's own field names.
     // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
-    /// HELLO body indices — B_HELLO_NAME, B_HELLO_VER, B_HELLO_CAPS.
+    /// HELLO body indices—B_HELLO_NAME, B_HELLO_VER, B_HELLO_CAPS.
     public enum HelloField {
         public static let name: Int = 0
         public static let ver:  Int = 1
@@ -86,7 +86,7 @@ public enum RRC {
 
     // The members below are the reference's own field names.
     // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
-    /// WELCOME body indices — B_WELCOME_HUB, B_WELCOME_VER, B_WELCOME_CAPS, B_WELCOME_LIMITS.
+    /// WELCOME body indices—B_WELCOME_HUB, B_WELCOME_VER, B_WELCOME_CAPS, B_WELCOME_LIMITS.
     public enum WelcomeField {
         public static let hub:    Int = 0
         public static let ver:    Int = 1
@@ -96,7 +96,7 @@ public enum RRC {
 
     // The members below are the reference's own field names.
     // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
-    /// Capability flag indices — CAP_RESOURCE_ENVELOPE, CAP_ACTION.
+    /// Capability flag indices—CAP_RESOURCE_ENVELOPE, CAP_ACTION.
     public enum Cap {
         public static let resourceEnvelope: Int = 0
         public static let action:           Int = 1
@@ -104,7 +104,7 @@ public enum RRC {
 
     // The members below are the reference's own field names.
     // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
-    /// Indices into the WELCOME limits dict — L_MAX_NICK_BYTES, …, L_RATE_LIMIT_MSGS_PER_MINUTE.
+    /// Indices into the WELCOME limits dict—L_MAX_NICK_BYTES, …, L_RATE_LIMIT_MSGS_PER_MINUTE.
     public enum LimitField {
         public static let maxNickBytes:            Int = 0
         public static let maxRoomNameBytes:        Int = 1
@@ -115,7 +115,7 @@ public enum RRC {
 
     // The members below are the reference's own field names.
     // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
-    /// Indices into T_RESOURCE_ENVELOPE body — B_RES_ID, …, B_RES_ENCODING.
+    /// Indices into T_RESOURCE_ENVELOPE body—B_RES_ID, …, B_RES_ENCODING.
     public enum ResField {
         public static let id:       Int = 0
         public static let kind:     Int = 1
@@ -126,7 +126,7 @@ public enum RRC {
 
     // The members below are the reference's own field names.
     // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
-    /// Resource kind strings — RES_KIND_NOTICE, RES_KIND_MOTD, RES_KIND_BLOB.
+    /// Resource kind strings—RES_KIND_NOTICE, RES_KIND_MOTD, RES_KIND_BLOB.
     public enum ResKind {
         public static let notice: String = "notice"
         public static let motd:   String = "motd"
@@ -482,7 +482,7 @@ public final class RRCHub {
     }
 
     /// Snapshot the joined-rooms set under the hub lock (callers on other threads
-    /// must not iterate `rooms` directly — packet handlers mutate it).
+    /// must not iterate `rooms` directly—packet handlers mutate it).
     internal func snapshotRooms() -> [String] {
         lock.withLock { Array(rooms) }
     }
@@ -560,7 +560,7 @@ public final class RRCHub {
             manualDisconnect = false
             reconnectTask?.cancel(); reconnectTask = nil
             let text = reconnectAttempts > 0 ? "Reconnecting (attempt \(reconnectAttempts))" : "Connecting"
-            // Set state directly: we already hold `lock`, and `setStatus` would
+            // Set state directly: `lock` is already held, and `setStatus` would
             // re-acquire the same non-recursive NSLock → deadlock. Notify AFTER the
             // lock is released (below), mirroring `setStatus`'s own ordering.
             self.status = .connecting
@@ -580,8 +580,8 @@ public final class RRCHub {
             setStatus(.failed, text: "No transport"); return
         }
 
-        // Request path if unknown. Wait up to 20s — path resolution over a real
-        // multi-hop mesh (public transport backbone) can take well over the old 5s,
+        // Request path if unknown. Wait up to 20 seconds—path resolution over a real
+        // multi-hop mesh (public transport backbone) can take well over the old 5 seconds,
         // and it must not be shorter than the identity-recall wait just below it, or
         // a slow-mesh connect fails with a misleading "Hub identity unknown".
         if !transport.hasPath(to: hubHash) {
@@ -900,7 +900,7 @@ public final class RRCHub {
         if case .map(let bodyPairs) = env[RRC.Key.body] {
             var body: [Int: CBOR.Value] = [:]
             for (k, v) in bodyPairs { if case .uint(let u) = k { body[Int(u)] = v } }
-            // Assign the hub metadata/limits under the lock — they are readable
+            // Assign the hub metadata/limits under the lock—they are readable
             // from other threads (UI). Building the local caps/lims dicts inside
             // the lock is fine (no callouts).
             lock.withLock {
@@ -1104,7 +1104,7 @@ public final class RRCHub {
         let src: Data? = { if case .bytes(let b) = env[RRC.Key.src] { return b } else { return nil } }()
         let rawRoom: String? = { if case .text(let r) = env[RRC.Key.room] { return r } else { return nil } }()
 
-        // Parse /list and /who service notices; a silently-consumed auto reply is
+        // Parse /list and /who service notices; a silently consumed auto reply is
         // not recorded to the log.
         if processNoticeText(body) { return }
 
@@ -1155,7 +1155,7 @@ public final class RRCHub {
         let room: String? = { if case .text(let r) = env[RRC.Key.room] { return r.lowercased() } else { return nil } }()
         lock.withLock {
             // Sweep expired expectations on insert too (not only in
-            // resourceConcluded) — a peer sending envelopes that never conclude
+            // resourceConcluded)—a peer sending envelopes that never conclude
             // would otherwise grow this dictionary without bound.
             let now = Date()
             for (k, v) in resourceExpectations where v.expires < now { resourceExpectations[k] = nil }
@@ -1178,7 +1178,7 @@ public final class RRCHub {
     /// Handle a concluded hub→client resource transfer.
     ///
     /// Matches the assembled payload
-    /// to a previously-advertised `ResourceExpectation` (by exact size), verifies the
+    /// to a previously advertised `ResourceExpectation` (by exact size), verifies the
     /// optional sha256, decodes the text, and routes MOTD / `/who` / `/list` notices
     /// through the same parser as the packet path. Mirrors Python
     /// `RRCHub._resource_concluded` (commit f07a035).
@@ -1200,10 +1200,10 @@ public final class RRCHub {
         // Verify the optional integrity hash before trusting the payload.
         if let sha = matched?.sha256, Data(SHA256.hash(data: payload)) != sha { return }
 
-        // Only notice/MOTD payloads carry text we act on; blobs are ignored.
+        // Only notice/MOTD payloads carry text that is acted on; blobs are ignored.
         guard kind == RRC.ResKind.notice || kind == RRC.ResKind.motd else { return }
 
-        // Decode as UTF-8 (lossy — mirrors Python decode(errors="replace")). Resource
+        // Decode as UTF-8 (lossy—mirrors Python decode(errors="replace")). Resource
         // envelopes use utf-8; unknown encodings fall back to the same lossy decode.
         let text = String(decoding: payload, as: UTF8.self)
 
@@ -1237,7 +1237,7 @@ public final class RRCHub {
             }
         }
         // Fire the message callback OUTSIDE the hub lock (it invokes the app's
-        // onMessageCallback, which may re-enter the hub — non-recursive lock).
+        // onMessageCallback, which may re-enter the hub—non-recursive lock).
         manager?.notifyMessages(hub: self, msg: msg)
         appendHistory(room: room, msg: msg)
         cleanHistory()
@@ -1542,14 +1542,14 @@ public final class RRCManager {
     /// Fires for each message received on any hub.
     public var onMessageCallback: ((RRCHub, RRCMessage) -> Void)?
 
-    /// Maximum size, in bytes, of a hub→client resource transfer this client will
-    /// accept.
+    /// Maximum size, in bytes, of a hub→client resource transfer this client
+    /// accepts.
     ///
     /// Larger advertisements are rejected; `<= 0` disables all resource
     /// acceptance. Mirrors Python `rrc_max_accepted_resource_size` (default 256 KiB).
     public var maxAcceptedResourceSize: Int = RRCHub.defaultMaxAcceptedResourceSize
 
-    // Optional production app protocol — provides identity + storage
+    // Optional production app protocol—provides identity + storage
     /// Owning application, supplying identity and storage.
     public weak var app: NomadNetworkAppProtocol?
 
@@ -1588,12 +1588,12 @@ public final class RRCManager {
 
     // MARK: Init
 
-    /// Production init — supply an app conforming to `NomadNetworkAppProtocol`.
+    /// Production init—supply an app conforming to `NomadNetworkAppProtocol`.
     public init(app: NomadNetworkAppProtocol? = nil) {
         self.app = app
     }
 
-    /// Test-friendly init — supply identity / storagePath / nickname directly.
+    /// Test-friendly init—supply identity / storagePath / nickname directly.
     public convenience init(identity: Identity, storagePath: URL? = nil, nickname: String? = nil) {
         self.init(app: nil)
         identityOverride = identity
@@ -1751,7 +1751,7 @@ public final class RRCManager {
             if let nick = h.nickOverride, !nick.isEmpty {
                 e.append((.text("nick"), .text(nick)))
             }
-            entries.append((.text(""), .map(e)))  // key ignored — we store as array item
+            entries.append((.text(""), .map(e)))  // key ignored; stored as an array item
         }
         let entryValues: [CBOR.Value] = entries.map { $0.1 }
         let payload = CBOR.encode(.map([(.text("hubs"), .array(entryValues))]))
