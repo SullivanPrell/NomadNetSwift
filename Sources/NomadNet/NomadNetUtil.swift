@@ -20,11 +20,15 @@ public enum NomadNetUtil {
     // MARK: – strip_modifiers
 
     /// Characters that are known to render incorrectly in many fonts and should be
-    /// replaced with a space. Matches Python `invalid_rendering`.
+    /// replaced with a space.
+    ///
+    /// Matches Python `invalid_rendering`.
     private static let invalidRendering: [Character] = ["🕵️", "☝"]
 
     /// Strip Unicode modifiers, emoji skin tones, variation selectors, and control
-    /// characters. Normalizes CRLF to LF and removes NUL bytes.
+    /// characters.
+    ///
+    /// Normalizes CRLF to LF and removes NUL bytes.
     ///
     /// - Returns: `nil` if `text` is `nil`, otherwise the cleaned string.
     ///
@@ -79,7 +83,9 @@ public enum NomadNetUtil {
 
     // MARK: – sanitize_name
 
-    /// Unicode blocks to strip from names. Corresponds to Python `STRIP_BLOCKS_RE`.
+    /// Unicode blocks to strip from names.
+    ///
+    /// Corresponds to Python `STRIP_BLOCKS_RE`.
     private static let stripBlocksPattern: String = {
         // Emoji and symbol ranges that are not in the L/N/P categories
         let ranges = [
@@ -101,12 +107,16 @@ public enum NomadNetUtil {
         return "[" + ranges.joined() + "]+"
     }()
 
-    /// Control characters and zero-width characters. Corresponds to Python `STRIP_CONTROL_RE`.
+    /// Control characters and zero-width characters.
+    ///
+    /// Corresponds to Python `STRIP_CONTROL_RE`.
     private static let stripControlPattern =
         "[\u{00}-\u{08}\u{0B}\u{0C}\u{0E}-\u{1F}\u{7F}-\u{9F}" +
         "\u{200B}-\u{200F}\u{202A}-\u{202E}\u{2060}-\u{206F}\u{FEFF}\u{FFF0}-\u{FFF8}]+"
 
-    /// Surrogates and private-use areas. Corresponds to Python `STRIP_PRIVATE_RE`.
+    /// Surrogates and private-use areas.
+    ///
+    /// Corresponds to Python `STRIP_PRIVATE_RE`.
     private static let stripPrivatePattern =
         "[\u{E000}-\u{F8FF}\u{FE10}-\u{FE2F}]+"
 

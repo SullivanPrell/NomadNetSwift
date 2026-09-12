@@ -24,6 +24,7 @@ public struct PageRequest: Sendable {
     public let url: NomadNetURL
 
     /// Form field values keyed by field name (without the `field_` prefix).
+    ///
     /// When sent over RNS the keys are prefixed with `field_` in the msgpack map.
     public let fields: [String: String]
 
@@ -57,10 +58,14 @@ open class NomadNetBrowser: @unchecked Sendable {
 
     // MARK: - Constants
 
-    /// Default request path on a NomadNet node. Mirrors `Browser.DEFAULT_PATH`.
+    /// Default request path on a NomadNet node.
+    ///
+    /// Mirrors `Browser.DEFAULT_PATH`.
     public static let defaultPath: String = NomadNetURL.defaultPath
 
-    /// Default request timeout in seconds. Mirrors `Browser.DEFAULT_TIMEOUT = 10`.
+    /// Default request timeout in seconds.
+    ///
+    /// Mirrors `Browser.DEFAULT_TIMEOUT = 10`.
     public static let defaultTimeout: TimeInterval = 10
 
     // MARK: - Properties
@@ -73,15 +78,19 @@ open class NomadNetBrowser: @unchecked Sendable {
 
     /// Called when a page has been successfully loaded and parsed, with the
     /// full page-level result (nodes + anchors + `#!fg=`/`#!bg=` page colors).
+    ///
     /// Parameters: parsed `MicronPage`, the URL that was loaded.
     public var onPageParsed: ((MicronPage, NomadNetURL) -> Void)?
 
     /// Legacy nodes-only callback; prefer `onPageParsed`, which also carries
-    /// the page colors and anchors. Fired after `onPageParsed`.
+    /// the page colors and anchors.
+    ///
+    /// Fired after `onPageParsed`.
     /// Parameters: parsed Micron AST, the URL that was loaded.
     public var onPageLoaded: (([MicronNode], NomadNetURL) -> Void)?
 
     /// Called when a request fails (link timeout, request failure, etc.).
+    ///
     /// Parameters: error description, the URL that failed.
     public var onError: ((String, NomadNetURL) -> Void)?
 

@@ -24,7 +24,9 @@ public final class PageHistory {
 
     // MARK: - Stored properties
 
-    /// All history entries. Index 0 is the oldest entry.
+    /// All history entries.
+    ///
+    /// Index 0 is the oldest entry.
     public private(set) var entries: [NomadNetURL]
 
     /// Index of the currently displayed entry, or `-1` when empty.

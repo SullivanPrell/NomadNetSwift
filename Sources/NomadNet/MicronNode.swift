@@ -140,7 +140,9 @@ public struct MicronField: Equatable {
 
 /// A navigable link embedded in a line.
 public struct MicronLink: Equatable {
-    /// Display text. If empty in markup the URL is used as label.
+    /// Display text.
+    ///
+    /// If empty in markup the URL is used as label.
     public var label: String
     /// Navigation target (NomadNet node hash + path, or a relative path).
     public var url: String

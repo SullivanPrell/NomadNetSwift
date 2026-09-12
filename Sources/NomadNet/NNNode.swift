@@ -30,14 +30,18 @@ public class NNNode {
 
     // MARK: – Constants (Python: Node.JOB_INTERVAL, START_ANNOUNCE_DELAY)
 
-    /// Background job run interval in seconds. Python: `JOB_INTERVAL = 5`.
+    /// Background job run interval in seconds.
+    ///
+    /// Python: `JOB_INTERVAL = 5`.
     public static let jobInterval: TimeInterval = 5
 
     /// Delay before the initial startup announce, in seconds.
+    ///
     /// Python: `START_ANNOUNCE_DELAY = 6`.
     public static let startAnnounceDelay: TimeInterval = 6
 
     /// Combined aspect string for NomadNet node destinations.
+    ///
     /// Python: `Destination(identity, IN, SINGLE, "nomadnetwork", "node")`.
     public static let aspectFilter: String = "nomadnetwork.node"
 
@@ -47,6 +51,7 @@ public class NNNode {
     // MARK: – Default page Micron content
 
     /// Auto-generated home page served when `/page/index.mu` is not registered.
+    ///
     /// Python: `DEFAULT_INDEX`.
     public static let defaultIndexPage: String = """
         >Default Home Page
@@ -57,6 +62,7 @@ public class NNNode {
         """
 
     /// Page returned when the requester is not in the allowed-identity list.
+    ///
     /// Python: `DEFAULT_NOTALLOWED`.
     public static let defaultNotAllowedPage: String = """
         >Request Not Allowed
@@ -67,16 +73,21 @@ public class NNNode {
     // MARK: – Properties
 
     /// Display name of this node.
+    ///
     /// Used as `app_data` (UTF-8 encoded) in RNS announces.
     public let name: String
 
     // MARK: – Callbacks
 
-    /// Invoked when a peer link is established. Parameter is a link identifier.
+    /// Invoked when a peer link is established.
+    ///
+    /// Parameter is a link identifier.
     /// Python: `peer_connected(link)`.
     public var onPeerConnected: ((Data) -> Void)?
 
-    /// Invoked when a peer link is closed. Parameter is the same link identifier.
+    /// Invoked when a peer link is closed.
+    ///
+    /// Parameter is the same link identifier.
     /// Python: `peer_disconnected(link)`.
     public var onPeerDisconnected: ((Data) -> Void)?
 

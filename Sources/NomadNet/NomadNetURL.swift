@@ -33,6 +33,7 @@ public struct NomadNetURL: Equatable, Sendable {
     // MARK: - Constants
 
     /// Number of bytes in a truncated RNS destination hash.
+    ///
     /// Python: `RNS.Reticulum.TRUNCATED_HASHLENGTH // 8 = 128 // 8 = 16`.
     public static let hashByteLength: Int = 16
 

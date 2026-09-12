@@ -123,7 +123,9 @@ public struct MicronPage: Equatable {
     public let nodes: [MicronNode]
 
     /// Anchor name → index into `nodes` of the row the anchor is bound to
-    /// (the Python `anchors[name] = row_index` mapping). Rows bound by an
+    /// (the Python `anchors[name] = row_index` mapping).
+    ///
+    /// Rows bound by an
     /// explicit `` `:name `` declaration are immediately preceded by a
     /// zero-width `.anchor` marker node; heading slugs bind to the
     /// `.heading` node itself, which carries the slug.
@@ -269,6 +271,7 @@ public struct MicronParser {
     // MARK: - Line-level parsing
 
     /// Parse a single non-empty line against the current mutable state.
+    ///
     /// Returns zero or more nodes to append to the output.
     private static func parseLine(_ line: String, state: inout ParseState) -> [MicronNode] {
         var chars = Array(line)

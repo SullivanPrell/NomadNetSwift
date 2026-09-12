@@ -28,6 +28,7 @@ extension NSLock {
 // MARK: - RRCMessage
 
 /// A received or sent RRC chat message.
+///
 /// Corresponds to Python `RRCMessage` in `nomadnet/RRC.py`.
 public struct RRCMessage {
     public var kind:    String
@@ -223,6 +224,7 @@ public enum RRCHubError: Error {
 // MARK: - RRCHub
 
 /// A connection to a single RRC hub.
+///
 /// Corresponds to Python `RRCHub` in `nomadnet/RRC.py`.
 public final class RRCHub {
 
@@ -284,17 +286,21 @@ public final class RRCHub {
     // MARK: Class-level constants
 
     /// Minimum elapsed time (seconds) between consecutive `cleanHistory` sweeps.
+    ///
     /// Matches Python `RRCHub.CLEAN_HISTORY_INTERVAL = 5`.
     internal static let cleanHistoryInterval: TimeInterval = 5.0
 
     /// Default lifetime (seconds) for ephemeral messages when no app override is set.
+    ///
     /// Matches Python `RRCHub.SYS_NOTICE_TIMEOUT = 600`.
     internal static let sysNoticeTimeout: TimeInterval = 600.0
 
     // MARK: Private
 
     private let lock = NSLock()
-    /// Serializes history-file writes. On non-POSIX platforms O_APPEND writes
+    /// Serializes history-file writes.
+    ///
+    /// On non-POSIX platforms O_APPEND writes
     /// are not guaranteed to be atomic; this lock prevents interleaved writes.
     /// Mirrors Python `RRCHub._history_io_lock` added for cross-platform safety.
     private let historyIOLock = NSLock()
@@ -308,11 +314,13 @@ public final class RRCHub {
     private var resourceExpectations: [Data: ResourceExpectation] = [:]
 
     /// Strong reference to the owning manager.
+    ///
     /// The retain cycle (manager→hub→manager) is broken by `RRCManager.removeHub`
     /// which sets `hub.manager = nil` before releasing the hub.
     internal var manager: RRCManager?
 
     /// Default cap on an accepted hub→client resource transfer (256 KiB).
+    ///
     /// Mirrors Python's `rrc_max_accepted_resource_size` default (commit 510d476).
     public static let defaultMaxAcceptedResourceSize: Int = 262144
 
@@ -601,7 +609,9 @@ public final class RRCHub {
 
     // MARK: - Outbound send
 
-    /// Build and "send" a CBOR envelope. In tests, intercepted by `sendHook`.
+    /// Build and "send" a CBOR envelope.
+    ///
+    /// In tests, intercepted by `sendHook`.
     internal func sendEnv(_ pairs: [(CBOR.Value, CBOR.Value)]) throws {
         let payload = CBOR.encode(.map(pairs))
         if let hook = sendHook { hook(payload); return }
@@ -949,7 +959,9 @@ public final class RRCHub {
     }
 
     /// Parse hub service notices (`/list` and `/who` replies) regardless of whether
-    /// they arrived as a packet or a resource transfer. Returns `true` when the notice
+    /// they arrived as a packet or a resource transfer.
+    ///
+    /// Returns `true` when the notice
     /// was consumed silently (an auto `/list` or `/who`) and should not be recorded to
     /// the message log. Mirrors Python `RRCHub._process_notice_text` (commit f07a035).
     private func processNoticeText(_ body: String) -> Bool {
@@ -1058,6 +1070,7 @@ public final class RRCHub {
     }
 
     /// Accept/reject an inbound hub resource advertisement by size.
+    ///
     /// Mirrors Python `RRCHub._resource_advertised` (commit 510d476): reject when the
     /// advertised data size exceeds the configured cap, or the cap is disabled (<= 0).
     internal func resourceAdvertised(size: Int) -> Bool {
@@ -1066,7 +1079,9 @@ public final class RRCHub {
         return true
     }
 
-    /// Handle a concluded hub→client resource transfer. Matches the assembled payload
+    /// Handle a concluded hub→client resource transfer.
+    ///
+    /// Matches the assembled payload
     /// to a previously-advertised `ResourceExpectation` (by exact size), verifies the
     /// optional sha256, decodes the text, and routes MOTD / `/who` / `/list` notices
     /// through the same parser as the packet path. Mirrors Python
@@ -1352,6 +1367,7 @@ public final class RRCHub {
     // MARK: - History behaviour helpers (Phase 22)
 
     /// Maximum in-memory messages per room (nil = no cap).
+    ///
     /// Reads from `manager.rrcHistoryPerRoomCap`.
     internal func perRoomCap() -> Int? {
         guard let v = manager?.rrcHistoryPerRoomCap, v > 0 else { return nil }
@@ -1359,6 +1375,7 @@ public final class RRCHub {
     }
 
     /// Whether system/notice messages should be skipped when loading history from disk.
+    ///
     /// Defaults to true (matches Python `rrc_filter_loaded_history`).
     internal func filterHistory() -> Bool {
         manager?.rrcFilterLoadedHistory ?? true
@@ -1370,6 +1387,7 @@ public final class RRCHub {
     }
 
     /// Sweep the in-memory message buffers, removing old ephemeral (system/notice) messages.
+    ///
     /// Rate-limited to at most once per `cleanHistoryInterval` seconds.
     /// Matches Python `RRCHub._clean_history`.
     internal func cleanHistory() {
@@ -1411,6 +1429,7 @@ public final class RRCHub {
 // MARK: - RRCManager
 
 /// Manages a list of RRC hub connections and persists their configuration.
+///
 /// Corresponds to Python `RRCManager` in `nomadnet/RRC.py`.
 public final class RRCManager {
 
@@ -1421,7 +1440,9 @@ public final class RRCManager {
     public var onMessageCallback: ((RRCHub, RRCMessage) -> Void)?
 
     /// Maximum size, in bytes, of a hub→client resource transfer this client will
-    /// accept. Larger advertisements are rejected; `<= 0` disables all resource
+    /// accept.
+    ///
+    /// Larger advertisements are rejected; `<= 0` disables all resource
     /// acceptance. Mirrors Python `rrc_max_accepted_resource_size` (default 256 KiB).
     public var maxAcceptedResourceSize: Int = RRCHub.defaultMaxAcceptedResourceSize
 

@@ -121,6 +121,7 @@ public class NNDirectory {
     // MARK: – Constants
 
     /// Maximum number of announces kept in each stream.
+    ///
     /// Python: `Directory.ANNOUNCE_STREAM_MAXLENGTH = 256`.
     public static let announceStreamMaxLength: Int = 256
 
@@ -134,13 +135,19 @@ public class NNDirectory {
 
     // MARK: – Announce streams
 
-    /// Node announces (newest first). Python: `self._node_announces`.
+    /// Node announces (newest first).
+    ///
+    /// Python: `self._node_announces`.
     public private(set) var nodeAnnounces: [AnnounceRecord] = []
 
-    /// Peer announces (newest first). Python: `self._peer_announces`.
+    /// Peer announces (newest first).
+    ///
+    /// Python: `self._peer_announces`.
     public private(set) var peerAnnounces: [AnnounceRecord] = []
 
-    /// Propagation-node announces (newest first). Python: `self._pn_announces`.
+    /// Propagation-node announces (newest first).
+    ///
+    /// Python: `self._pn_announces`.
     public private(set) var pnAnnounces:   [AnnounceRecord] = []
 
     // MARK: – Init
@@ -182,17 +189,22 @@ public class NNDirectory {
 
     // MARK: – Entry management (Python: remember / forget / find)
 
-    /// Store or overwrite an entry. Python: `Directory.remember(entry)`.
+    /// Store or overwrite an entry.
+    ///
+    /// Python: `Directory.remember(entry)`.
     public func remember(_ entry: DirectoryEntry) {
         directoryEntries[entry.sourceHash] = entry
     }
 
-    /// Remove the entry with `sourceHash` if it exists. Python: `Directory.forget(source_hash)`.
+    /// Remove the entry with `sourceHash` if it exists.
+    ///
+    /// Python: `Directory.forget(source_hash)`.
     public func forget(_ sourceHash: Data) {
         directoryEntries.removeValue(forKey: sourceHash)
     }
 
     /// Return the entry for `sourceHash`, or `nil` if not known.
+    ///
     /// Python: `Directory.find(source_hash)`.
     public func find(_ sourceHash: Data) -> DirectoryEntry? {
         directoryEntries[sourceHash]
@@ -200,19 +212,24 @@ public class NNDirectory {
 
     // MARK: – Trust / display queries
 
-    /// Trust level for `sourceHash`. Returns `.unknown` if not in the directory.
+    /// Trust level for `sourceHash`.
+    ///
+    /// Returns `.unknown` if not in the directory.
     /// Python: `Directory.trust_level(source_hash)`.
     public func trustLevel(_ sourceHash: Data) -> DirectoryEntry.TrustLevel {
         directoryEntries[sourceHash]?.trustLevel ?? .unknown
     }
 
     /// Display name for `sourceHash`, or `nil` if not known.
+    ///
     /// Python: `Directory.display_name(source_hash)`.
     public func displayName(_ sourceHash: Data) -> String? {
         directoryEntries[sourceHash]?.displayName
     }
 
-    /// Preferred delivery for `sourceHash`. Returns `.direct` if not in directory.
+    /// Preferred delivery for `sourceHash`.
+    ///
+    /// Returns `.direct` if not in directory.
     /// Python: `Directory.preferred_delivery(source_hash)`.
     public func preferredDelivery(_ sourceHash: Data) -> DirectoryEntry.Delivery {
         directoryEntries[sourceHash]?.preferredDelivery ?? .direct
@@ -221,6 +238,7 @@ public class NNDirectory {
     // MARK: – Known nodes (Python: Directory.known_nodes / number_of_known_nodes)
 
     /// All entries that host a NomadNet node, sorted by trust level (desc) then name.
+    ///
     /// Python: `Directory.known_nodes()`.
     public func knownNodes() -> [DirectoryEntry] {
         directoryEntries.values
@@ -244,7 +262,9 @@ public class NNDirectory {
 
     // MARK: – Announce stream updates (Python: node_announce_received / lxmf_announce_received)
 
-    /// Record a NomadNet node announce. Python: `Directory.node_announce_received(…)`.
+    /// Record a NomadNet node announce.
+    ///
+    /// Python: `Directory.node_announce_received(…)`.
     ///
     /// If `associatedPeer` has a `.trusted` entry, the node is auto-remembered as trusted.
     public func nodeAnnounceReceived(sourceHash: Data, appData: Data?, associatedPeer: Data?) {
@@ -269,7 +289,9 @@ public class NNDirectory {
         }
     }
 
-    /// Record an LXMF peer announce. Python: `Directory.lxmf_announce_received(…)`.
+    /// Record an LXMF peer announce.
+    ///
+    /// Python: `Directory.lxmf_announce_received(…)`.
     public func peerAnnounceReceived(sourceHash: Data, appData: Data?) {
         let record = AnnounceRecord(
             timestamp:  Date(),
@@ -283,7 +305,9 @@ public class NNDirectory {
         }
     }
 
-    /// Record a propagation-node announce. Python: `Directory.pn_announce_received(…)`.
+    /// Record a propagation-node announce.
+    ///
+    /// Python: `Directory.pn_announce_received(…)`.
     public func pnAnnounceReceived(sourceHash: Data, appData: Data?,
                                     associatedPeer: Data?, associatedNode: Data?) {
         let record = AnnounceRecord(
@@ -306,6 +330,7 @@ public class NNDirectory {
     //                      preferredDelivery, identify, sortRank, notes]
 
     /// Persist the directory entries to `url` in msgpack format.
+    ///
     /// Python: `Directory.save_to_disk()`.
     public func save(to url: URL) throws {
         var entryList: [MsgPack.Value] = []
@@ -334,7 +359,9 @@ public class NNDirectory {
         try data.write(to: url)
     }
 
-    /// Load directory entries from `url`. If the file does not exist, does nothing.
+    /// Load directory entries from `url`.
+    ///
+    /// If the file does not exist, does nothing.
     /// Python: `Directory.load_from_disk()`.
     public func load(from url: URL) throws {
         guard FileManager.default.fileExists(atPath: url.path) else { return }

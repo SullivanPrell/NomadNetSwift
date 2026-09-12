@@ -239,6 +239,7 @@ public enum CBOR {
     // MARK: – Multi-item decode
 
     /// Decode every consecutive CBOR value in `data` and return them as an array.
+    ///
     /// Used by history loading, where each log entry is an independently encoded CBOR item
     /// appended to a flat file (same layout as Python `cbor.encode` / `cbor.load` streams).
     public static func decodeAll(_ data: Data) throws -> [Value] {

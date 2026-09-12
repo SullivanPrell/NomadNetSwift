@@ -1284,6 +1284,7 @@ final class RRCHubHistoryBehaviorTests: XCTestCase {
 
     /// Regression test for Python NomadNet RRC commit bec78cf:
     /// "RRC: filter and *then* apply the history cap".
+    ///
     /// If a room has 3 msgs + 2 system entries and cap=2, after filtering
     /// 3 real messages remain; cap should keep the last 2 of those, not 2
     /// of the 5 pre-filter entries.
