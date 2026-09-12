@@ -172,9 +172,9 @@ final class RRCHubInitTests: XCTestCase {
     }
 
     // Regression for bug 007: `connect()` acquired the hub's non-recursive NSLock
-    // and, while holding it, called `_setStatus`, which re-acquired the SAME lock →
+    // and, while holding it, called `setStatus`, which re-acquired the SAME lock →
     // self-deadlock. `connect()` never returned, so no real link was ever opened.
-    // Every prior RRC test drove the hub via the `_sendHook`/`_onPacket` seam and
+    // Every prior RRC test drove the hub via the `sendHook`/`onPacket` seam and
     // never exercised the real connect() path, so the deadlock went uncaught.
     // Run connect() off-thread with a timeout: pre-fix this hangs and the
     // expectation is never fulfilled (clean failure, not a wedged suite).
@@ -289,7 +289,7 @@ final class RRCHubRoomManagementTests: XCTestCase {
     func testClearMessagesEmptiesBuffer() {
         let h = makeHub(rooms: ["lobby"])
         // Feed a message
-        h._onPacket(makePkt(type: RRC.MessageType.msg, src: makeSrc(), room: "lobby", body: .text("hi")))
+        h.onPacket(makePkt(type: RRC.MessageType.msg, src: makeSrc(), room: "lobby", body: .text("hi")))
         XCTAssertFalse(h.getMessages(room: "lobby").isEmpty)
         h.clearMessages("lobby")
         XCTAssertTrue(h.getMessages(room: "lobby").isEmpty)
@@ -302,7 +302,7 @@ final class RRCHubRoomManagementTests: XCTestCase {
 
     func testMarkReadClearsUnreadRoom() {
         let h = makeHub(rooms: ["lobby"])
-        h._onPacket(makePkt(type: RRC.MessageType.msg, src: makeSrc(), room: "lobby", body: .text("hi")))
+        h.onPacket(makePkt(type: RRC.MessageType.msg, src: makeSrc(), room: "lobby", body: .text("hi")))
         h.markRead("lobby")
         XCTAssertFalse(h.unreadRooms.contains("lobby"))
     }
@@ -321,7 +321,7 @@ final class RRCHubNickTests: XCTestCase {
     func testDisplayNameForKnownNickReturnsNick() {
         let h = makeHub(rooms: ["lobby"])
         let hash = Data(repeating: 0x11, count: 8)
-        h._onPacket(makePkt(type: RRC.MessageType.msg, src: hash, room: "lobby",
+        h.onPacket(makePkt(type: RRC.MessageType.msg, src: hash, room: "lobby",
                             body: .text("hey"), nick: "alice"))
         XCTAssertEqual(h.displayNameFor(hash), "alice")
     }
@@ -366,8 +366,8 @@ final class RRCHubSendHelloTests: XCTestCase {
     func testSendHelloContainsHelloType() throws {
         let h = makeHub()
         var sent: Data? = nil
-        h._sendHook = { sent = $0 }
-        h._sendHello()
+        h.sendHook = { sent = $0 }
+        h.sendHello()
         let env = try decodeSentEnv(XCTUnwrap(sent))
         guard case .uint(let t) = env[RRC.Key.type] else { return XCTFail("no type") }
         XCTAssertEqual(Int(t), RRC.MessageType.hello)
@@ -377,8 +377,8 @@ final class RRCHubSendHelloTests: XCTestCase {
         let id = Identity()
         let h = makeHub(identity: id)
         var sent: Data? = nil
-        h._sendHook = { sent = $0 }
-        h._sendHello()
+        h.sendHook = { sent = $0 }
+        h.sendHello()
         let env = try decodeSentEnv(XCTUnwrap(sent))
         guard case .bytes(let src) = env[RRC.Key.src] else { return XCTFail("no src") }
         XCTAssertEqual(src, id.hash)
@@ -387,8 +387,8 @@ final class RRCHubSendHelloTests: XCTestCase {
     func testSendHelloContainsVersion() throws {
         let h = makeHub()
         var sent: Data? = nil
-        h._sendHook = { sent = $0 }
-        h._sendHello()
+        h.sendHook = { sent = $0 }
+        h.sendHello()
         let env = try decodeSentEnv(XCTUnwrap(sent))
         guard case .uint(let v) = env[RRC.Key.version] else { return XCTFail("no version") }
         XCTAssertEqual(Int(v), RRC.version)
@@ -397,8 +397,8 @@ final class RRCHubSendHelloTests: XCTestCase {
     func testSendHelloBodyIsMap() throws {
         let h = makeHub()
         var sent: Data? = nil
-        h._sendHook = { sent = $0 }
-        h._sendHello()
+        h.sendHook = { sent = $0 }
+        h.sendHello()
         let env = try decodeSentEnv(XCTUnwrap(sent))
         guard case .map(_) = env[RRC.Key.body] else { return XCTFail("body should be a map") }
     }
@@ -406,8 +406,8 @@ final class RRCHubSendHelloTests: XCTestCase {
     func testSendHelloBodyContainsName() throws {
         let h = makeHub()
         var sent: Data? = nil
-        h._sendHook = { sent = $0 }
-        h._sendHello()
+        h.sendHook = { sent = $0 }
+        h.sendHello()
         let env = try decodeSentEnv(XCTUnwrap(sent))
         guard case .map(let bodyPairs) = env[RRC.Key.body] else { return XCTFail() }
         var bodyDict: [Int: CBOR.Value] = [:]
@@ -419,8 +419,8 @@ final class RRCHubSendHelloTests: XCTestCase {
     func testSendHelloBodyContainsCaps() throws {
         let h = makeHub()
         var sent: Data? = nil
-        h._sendHook = { sent = $0 }
-        h._sendHello()
+        h.sendHook = { sent = $0 }
+        h.sendHello()
         let env = try decodeSentEnv(XCTUnwrap(sent))
         guard case .map(let bodyPairs) = env[RRC.Key.body] else { return XCTFail() }
         var bodyDict: [Int: CBOR.Value] = [:]
@@ -432,8 +432,8 @@ final class RRCHubSendHelloTests: XCTestCase {
         let h = makeHub()
         h.nickOverride = "alice"
         var sent: Data? = nil
-        h._sendHook = { sent = $0 }
-        h._sendHello()
+        h.sendHook = { sent = $0 }
+        h.sendHello()
         let env = try decodeSentEnv(XCTUnwrap(sent))
         guard case .text(let n) = env[RRC.Key.nick] else { return XCTFail("no nick") }
         XCTAssertEqual(n, "alice")
@@ -442,61 +442,61 @@ final class RRCHubSendHelloTests: XCTestCase {
     func testSendHelloOmitsNickWhenNil() throws {
         let h = makeHub()
         var sent: Data? = nil
-        h._sendHook = { sent = $0 }
-        h._sendHello()
+        h.sendHook = { sent = $0 }
+        h.sendHello()
         let env = try decodeSentEnv(XCTUnwrap(sent))
         XCTAssertNil(env[RRC.Key.nick])
     }
 }
 
-// MARK: - _onPacket: T_WELCOME
+// MARK: - onPacket: T_WELCOME
 
 final class RRCHubWelcomeTests: XCTestCase {
     func testOnWelcomeSetsWelcomed() {
         let h = makeHub()
-        h._onPacket(makeWelcomePkt())
+        h.onPacket(makeWelcomePkt())
         XCTAssertTrue(h.welcomed)
     }
 
     func testOnWelcomeSetsStatusConnected() {
         let h = makeHub()
-        h._onPacket(makeWelcomePkt())
+        h.onPacket(makeWelcomePkt())
         XCTAssertEqual(h.status, .connected)
     }
 
     func testOnWelcomeSetsHubName() {
         let h = makeHub()
-        h._onPacket(makeWelcomePkt(hubName: "MyHub"))
+        h.onPacket(makeWelcomePkt(hubName: "MyHub"))
         XCTAssertEqual(h.hubName, "MyHub")
     }
 
     func testOnWelcomeSetsHubVersion() {
         let h = makeHub()
-        h._onPacket(makeWelcomePkt(hubVer: "2.0"))
+        h.onPacket(makeWelcomePkt(hubVer: "2.0"))
         XCTAssertEqual(h.hubVersion, "2.0")
     }
 
     func testOnWelcomeUpdatesMaxMsgBodyBytes() {
         let h = makeHub()
-        h._onPacket(makeWelcomePkt(maxMsg: 512))
+        h.onPacket(makeWelcomePkt(maxMsg: 512))
         XCTAssertEqual(h.maxMsgBodyBytes, 512)
     }
 
     func testOnWelcomeUpdatesMaxNickBytes() {
         let h = makeHub()
-        h._onPacket(makeWelcomePkt(maxNick: 16))
+        h.onPacket(makeWelcomePkt(maxNick: 16))
         XCTAssertEqual(h.maxNickBytes, 16)
     }
 
     func testOnWelcomeResetsReconnectAttempts() {
         let h = makeHub()
-        h._reconnectAttempts = 3
-        h._onPacket(makeWelcomePkt())
-        XCTAssertEqual(h._reconnectAttempts, 0)
+        h.reconnectAttempts = 3
+        h.onPacket(makeWelcomePkt())
+        XCTAssertEqual(h.reconnectAttempts, 0)
     }
 }
 
-// MARK: - _onPacket: T_JOINED / T_PARTED
+// MARK: - onPacket: T_JOINED / T_PARTED
 
 final class RRCHubJoinPartTests: XCTestCase {
     func testOnJoinedAddsToRoomsSet() {
@@ -504,8 +504,8 @@ final class RRCHubJoinPartTests: XCTestCase {
         let mgr = makeManager(identity: id)
         let h = mgr.addHub(hash: Data(repeating: 0xCD, count: 16))
         // Simulate our own join: put room in pendingJoins
-        h._pendingJoins.insert("lobby")
-        h._onPacket(makeJoinedPkt(src: id.hash, room: "lobby", members: [id.hash]))
+        h.pendingJoins.insert("lobby")
+        h.onPacket(makeJoinedPkt(src: id.hash, room: "lobby", members: [id.hash]))
         XCTAssertTrue(h.rooms.contains("lobby"))
     }
 
@@ -514,8 +514,8 @@ final class RRCHubJoinPartTests: XCTestCase {
         let mgr = makeManager(identity: id)
         let h = mgr.addHub(hash: Data(repeating: 0xCD, count: 16))
         let peerHash = Data(repeating: 0x77, count: 16)
-        h._pendingJoins.insert("lobby")
-        h._onPacket(makeJoinedPkt(src: id.hash, room: "lobby", members: [id.hash, peerHash]))
+        h.pendingJoins.insert("lobby")
+        h.onPacket(makeJoinedPkt(src: id.hash, room: "lobby", members: [id.hash, peerHash]))
         let members = h.getMembers(room: "lobby")
         XCTAssertTrue(members.contains(peerHash))
     }
@@ -526,7 +526,7 @@ final class RRCHubJoinPartTests: XCTestCase {
         let h = mgr.addHub(hash: Data(repeating: 0xCD, count: 16))
         _ = h.addRoom("lobby")
         let peer = Data(repeating: 0x77, count: 16)
-        h._onPacket(makeJoinedPkt(src: peer, room: "lobby", members: [peer]))
+        h.onPacket(makeJoinedPkt(src: peer, room: "lobby", members: [peer]))
         let msgs = h.getMessages(room: "lobby")
         XCTAssertTrue(msgs.contains { $0.kind == "system" && $0.text.contains("joined") })
     }
@@ -537,7 +537,7 @@ final class RRCHubJoinPartTests: XCTestCase {
         let h = mgr.addHub(hash: Data(repeating: 0xCD, count: 16))
         _ = h.addRoom("lobby")
         let peer = Data(repeating: 0x55, count: 16)
-        h._onPacket(makeJoinedPkt(src: peer, room: "lobby", members: [peer], nick: "bob"))
+        h.onPacket(makeJoinedPkt(src: peer, room: "lobby", members: [peer], nick: "bob"))
         XCTAssertEqual(h.displayNameFor(peer), "bob")
     }
 
@@ -548,9 +548,9 @@ final class RRCHubJoinPartTests: XCTestCase {
         _ = h.addRoom("lobby")
         let peer = Data(repeating: 0x55, count: 16)
         // First join
-        h._onPacket(makeJoinedPkt(src: peer, room: "lobby", members: [peer]))
+        h.onPacket(makeJoinedPkt(src: peer, room: "lobby", members: [peer]))
         // Then part
-        h._onPacket(makePartedPkt(src: peer, room: "lobby", members: [peer]))
+        h.onPacket(makePartedPkt(src: peer, room: "lobby", members: [peer]))
         XCTAssertFalse(h.getMembers(room: "lobby").contains(peer))
     }
 
@@ -560,18 +560,18 @@ final class RRCHubJoinPartTests: XCTestCase {
         let h = mgr.addHub(hash: Data(repeating: 0xCD, count: 16))
         _ = h.addRoom("lobby")
         let peer = Data(repeating: 0x55, count: 16)
-        h._onPacket(makePartedPkt(src: peer, room: "lobby", members: [peer]))
+        h.onPacket(makePartedPkt(src: peer, room: "lobby", members: [peer]))
         let msgs = h.getMessages(room: "lobby")
         XCTAssertTrue(msgs.contains { $0.kind == "system" && $0.text.contains("left") })
     }
 }
 
-// MARK: - _onPacket: T_MSG / T_ACTION / T_NOTICE / T_ERROR
+// MARK: - onPacket: T_MSG / T_ACTION / T_NOTICE / T_ERROR
 
 final class RRCHubMessageHandlerTests: XCTestCase {
     func testOnMsgRecordsMessage() {
         let h = makeHub(rooms: ["lobby"])
-        h._onPacket(makePkt(type: RRC.MessageType.msg, src: makeSrc(), room: "lobby", body: .text("hello")))
+        h.onPacket(makePkt(type: RRC.MessageType.msg, src: makeSrc(), room: "lobby", body: .text("hello")))
         let msgs = h.getMessages(room: "lobby")
         XCTAssertEqual(msgs.count, 1)
         XCTAssertEqual(msgs[0].kind, "msg")
@@ -580,7 +580,7 @@ final class RRCHubMessageHandlerTests: XCTestCase {
 
     func testOnMsgStoresNick() {
         let h = makeHub(rooms: ["lobby"])
-        h._onPacket(makePkt(type: RRC.MessageType.msg, src: makeSrc(), room: "lobby",
+        h.onPacket(makePkt(type: RRC.MessageType.msg, src: makeSrc(), room: "lobby",
                             body: .text("hi"), nick: "alice"))
         let msgs = h.getMessages(room: "lobby")
         XCTAssertEqual(msgs.first?.nick, "alice")
@@ -592,7 +592,7 @@ final class RRCHubMessageHandlerTests: XCTestCase {
         _ = h.addRoom("lobby")
         _ = h.addRoom("dev")
         mgr.setActive(hub: h, room: "dev")  // active on dev, msg arrives in lobby
-        h._onPacket(makePkt(type: RRC.MessageType.msg, src: makeSrc(), room: "lobby", body: .text("ping")))
+        h.onPacket(makePkt(type: RRC.MessageType.msg, src: makeSrc(), room: "lobby", body: .text("ping")))
         XCTAssertTrue(h.unreadRooms.contains("lobby"))
     }
 
@@ -601,14 +601,14 @@ final class RRCHubMessageHandlerTests: XCTestCase {
         let h = mgr.addHub(hash: Data(repeating: 0xCD, count: 16))
         _ = h.addRoom("lobby")
         mgr.setActive(hub: h, room: "lobby")
-        h._onPacket(makePkt(type: RRC.MessageType.msg, src: makeSrc(), room: "lobby", body: .text("hi")))
+        h.onPacket(makePkt(type: RRC.MessageType.msg, src: makeSrc(), room: "lobby", body: .text("hi")))
         XCTAssertFalse(h.unreadRooms.contains("lobby"))
     }
 
     func testOnMsgLearnsSenderNick() {
         let h = makeHub(rooms: ["lobby"])
         let src = Data(repeating: 0x11, count: 16)
-        h._onPacket(makePkt(type: RRC.MessageType.msg, src: src, room: "lobby",
+        h.onPacket(makePkt(type: RRC.MessageType.msg, src: src, room: "lobby",
                             body: .text("hi"), nick: "carol"))
         XCTAssertEqual(h.displayNameFor(src), "carol")
     }
@@ -619,15 +619,15 @@ final class RRCHubMessageHandlerTests: XCTestCase {
         let h = mgr.addHub(hash: Data(repeating: 0xCD, count: 16))
         _ = h.addRoom("lobby")
         let mid = Data(repeating: 0xAA, count: 8)
-        h._sentIDs.append(mid)  // simulate already having sent this mid
-        h._onPacket(makePkt(type: RRC.MessageType.msg, src: id.hash, room: "lobby",
+        h.sentIDs.append(mid)  // simulate already having sent this mid
+        h.onPacket(makePkt(type: RRC.MessageType.msg, src: id.hash, room: "lobby",
                             body: .text("echo"), mid: mid))
         XCTAssertTrue(h.getMessages(room: "lobby").isEmpty)
     }
 
     func testOnActionRecordsAction() {
         let h = makeHub(rooms: ["lobby"])
-        h._onPacket(makePkt(type: RRC.MessageType.action, src: makeSrc(), room: "lobby",
+        h.onPacket(makePkt(type: RRC.MessageType.action, src: makeSrc(), room: "lobby",
                             body: .text("waves")))
         let msgs = h.getMessages(room: "lobby")
         XCTAssertEqual(msgs.count, 1)
@@ -636,7 +636,7 @@ final class RRCHubMessageHandlerTests: XCTestCase {
 
     func testOnNoticeRecordsNotice() {
         let h = makeHub(rooms: ["lobby"])
-        h._onPacket(makePkt(type: RRC.MessageType.notice, src: makeSrc(), room: "lobby",
+        h.onPacket(makePkt(type: RRC.MessageType.notice, src: makeSrc(), room: "lobby",
                             body: .text("server restarting")))
         let msgs = h.getMessages(room: "lobby")
         XCTAssertTrue(msgs.contains { $0.kind == "notice" })
@@ -645,28 +645,28 @@ final class RRCHubMessageHandlerTests: XCTestCase {
     func testOnNoticeMOTDSetMotd() {
         let h = makeHub()
         // A NOTICE with no room and string body → MOTD
-        h._onPacket(makePkt(type: RRC.MessageType.notice, src: makeSrc(), body: .text("Welcome!")))
+        h.onPacket(makePkt(type: RRC.MessageType.notice, src: makeSrc(), body: .text("Welcome!")))
         XCTAssertEqual(h.motd, "Welcome!")
     }
 
     func testOnErrorRecordsError() {
         let h = makeHub(rooms: ["lobby"])
-        h._onPacket(makePkt(type: RRC.MessageType.error, src: makeSrc(), room: "lobby",
+        h.onPacket(makePkt(type: RRC.MessageType.error, src: makeSrc(), room: "lobby",
                             body: .text("rate limit exceeded")))
         let msgs = h.getMessages(room: "lobby")
         XCTAssertTrue(msgs.contains { $0.kind == "error" })
     }
 }
 
-// MARK: - _onPacket: T_PING / T_PONG
+// MARK: - onPacket: T_PING / T_PONG
 
 final class RRCHubPingPongTests: XCTestCase {
     func testOnPingRespondsWithPong() throws {
         let h = makeHub()
         var sent: Data? = nil
-        h._sendHook = { sent = $0 }
+        h.sendHook = { sent = $0 }
         let pingBody = Data(repeating: 0x42, count: 8)
-        h._onPacket(makePkt(type: RRC.MessageType.ping, src: makeSrc(), body: .bytes(pingBody)))
+        h.onPacket(makePkt(type: RRC.MessageType.ping, src: makeSrc(), body: .bytes(pingBody)))
         let env = try decodeSentEnv(XCTUnwrap(sent))
         guard case .uint(let t) = env[RRC.Key.type] else { return XCTFail("no type") }
         XCTAssertEqual(Int(t), RRC.MessageType.pong)
@@ -676,8 +676,8 @@ final class RRCHubPingPongTests: XCTestCase {
         let h = makeHub(rooms: ["lobby"])
         let mid = Data((0..<8).map { _ in UInt8.random(in: 0...255) })
         let sentAt = Int64(Date().timeIntervalSince1970 * 1000) - 50
-        h._pendingPings[mid] = (sentAt, "lobby")
-        h._onPacket(makePkt(type: RRC.MessageType.pong, src: makeSrc(), body: .bytes(mid)))
+        h.pendingPings[mid] = (sentAt, "lobby")
+        h.onPacket(makePkt(type: RRC.MessageType.pong, src: makeSrc(), body: .bytes(mid)))
         // Pong should record a system message with RTT
         let msgs = h.getMessages(room: "lobby")
         XCTAssertTrue(msgs.contains { $0.kind == "system" && $0.text.lowercased().contains("pong") })
@@ -690,7 +690,7 @@ final class RRCHubOutboundTests: XCTestCase {
     func testJoinRoomCBORType() throws {
         let h = makeHub()
         var sent: Data? = nil
-        h._sendHook = { sent = $0 }
+        h.sendHook = { sent = $0 }
         try h.joinRoom("lobby")
         let env = try decodeSentEnv(XCTUnwrap(sent))
         guard case .uint(let t) = env[RRC.Key.type] else { return XCTFail() }
@@ -700,7 +700,7 @@ final class RRCHubOutboundTests: XCTestCase {
     func testJoinRoomCBORRoom() throws {
         let h = makeHub()
         var sent: Data? = nil
-        h._sendHook = { sent = $0 }
+        h.sendHook = { sent = $0 }
         try h.joinRoom("DEV")  // should normalize
         let env = try decodeSentEnv(XCTUnwrap(sent))
         guard case .text(let r) = env[RRC.Key.room] else { return XCTFail() }
@@ -710,7 +710,7 @@ final class RRCHubOutboundTests: XCTestCase {
     func testPartRoomCBORType() throws {
         let h = makeHub(rooms: ["lobby"])
         var sent: Data? = nil
-        h._sendHook = { sent = $0 }
+        h.sendHook = { sent = $0 }
         h.partRoom("lobby")
         let env = try decodeSentEnv(XCTUnwrap(sent))
         guard case .uint(let t) = env[RRC.Key.type] else { return XCTFail() }
@@ -720,7 +720,7 @@ final class RRCHubOutboundTests: XCTestCase {
     func testSendMessageCBORType() throws {
         let h = makeHub(rooms: ["lobby"])
         var sent: Data? = nil
-        h._sendHook = { sent = $0 }
+        h.sendHook = { sent = $0 }
         _ = try h.sendMessage(room: "lobby", text: "hello")
         let env = try decodeSentEnv(XCTUnwrap(sent))
         guard case .uint(let t) = env[RRC.Key.type] else { return XCTFail() }
@@ -730,7 +730,7 @@ final class RRCHubOutboundTests: XCTestCase {
     func testSendMessageCBORBody() throws {
         let h = makeHub(rooms: ["lobby"])
         var sent: Data? = nil
-        h._sendHook = { sent = $0 }
+        h.sendHook = { sent = $0 }
         _ = try h.sendMessage(room: "lobby", text: "world")
         let env = try decodeSentEnv(XCTUnwrap(sent))
         guard case .text(let b) = env[RRC.Key.body] else { return XCTFail() }
@@ -739,7 +739,7 @@ final class RRCHubOutboundTests: XCTestCase {
 
     func testSendMessageRecordsLocalMessage() throws {
         let h = makeHub(rooms: ["lobby"])
-        h._sendHook = { _ in }
+        h.sendHook = { _ in }
         _ = try h.sendMessage(room: "lobby", text: "yo")
         let msgs = h.getMessages(room: "lobby")
         XCTAssertEqual(msgs.count, 1)
@@ -748,7 +748,7 @@ final class RRCHubOutboundTests: XCTestCase {
 
     func testSendMessageTooLongThrows() {
         let h = makeHub(rooms: ["lobby"])
-        h._sendHook = { _ in }
+        h.sendHook = { _ in }
         let longText = String(repeating: "x", count: h.maxMsgBodyBytes + 1)
         XCTAssertThrowsError(try h.sendMessage(room: "lobby", text: longText))
     }
@@ -756,7 +756,7 @@ final class RRCHubOutboundTests: XCTestCase {
     func testSendActionCBORType() throws {
         let h = makeHub(rooms: ["lobby"])
         var sent: Data? = nil
-        h._sendHook = { sent = $0 }
+        h.sendHook = { sent = $0 }
         _ = try h.sendAction(room: "lobby", text: "waves")
         let env = try decodeSentEnv(XCTUnwrap(sent))
         guard case .uint(let t) = env[RRC.Key.type] else { return XCTFail() }
@@ -765,28 +765,28 @@ final class RRCHubOutboundTests: XCTestCase {
 
     func testSendPingReturnsEightByteID() throws {
         let h = makeHub()
-        h._sendHook = { _ in }
+        h.sendHook = { _ in }
         let mid = try h.sendPing()
         XCTAssertEqual(mid.count, 8)
     }
 
     func testSendPingStoresPendingPing() throws {
         let h = makeHub()
-        h._sendHook = { _ in }
+        h.sendHook = { _ in }
         let mid = try h.sendPing()
-        XCTAssertNotNil(h._pendingPings[mid])
+        XCTAssertNotNil(h.pendingPings[mid])
     }
 
     func testSendCommandCBORType() throws {
         let h = makeHub()
-        h._sendHook = { _ in }
+        h.sendHook = { _ in }
         try h.sendCommand(text: "/list")
         // No assertion needed — just verify it doesn't throw
     }
 
     func testSendCommandNonSlashThrows() {
         let h = makeHub()
-        h._sendHook = { _ in }
+        h.sendHook = { _ in }
         XCTAssertThrowsError(try h.sendCommand(text: "list"))
     }
 }
@@ -846,8 +846,8 @@ final class RRCHubHistoryEntryTests: XCTestCase {
         let src = Data(repeating: 0xAB, count: 8)
         let msg = RRCMessage(kind: "msg", room: "lobby", src: src,
                              nick: "alice", text: "hello", ts: 1_700_000_000_000)
-        let entry = h._entryFor(msg)
-        let recovered = RRCHub._msgFromEntry(room: "lobby", entry: entry)
+        let entry = h.entryFor(msg)
+        let recovered = RRCHub.msgFromEntry(room: "lobby", entry: entry)
         XCTAssertNotNil(recovered)
         XCTAssertEqual(recovered?.kind,  "msg")
         XCTAssertEqual(recovered?.text,  "hello")
@@ -861,24 +861,24 @@ final class RRCHubHistoryEntryTests: XCTestCase {
         var msg = RRCMessage(kind: "msg", room: "lobby", src: Data(),
                              nick: nil, text: "yo", ts: 0)
         msg.mention = true
-        let recovered = RRCHub._msgFromEntry(room: "lobby", entry: h._entryFor(msg))
+        let recovered = RRCHub.msgFromEntry(room: "lobby", entry: h.entryFor(msg))
         XCTAssertTrue(recovered?.mention ?? false)
     }
 
     func testMsgFromEntryNilOnInvalidEntry() {
-        XCTAssertNil(RRCHub._msgFromEntry(room: "lobby", entry: [:]))
+        XCTAssertNil(RRCHub.msgFromEntry(room: "lobby", entry: [:]))
     }
 
     func testPersistableRoomAllowsNormalRooms() {
-        XCTAssertTrue(RRCHub._persistableRoom("lobby"))
+        XCTAssertTrue(RRCHub.persistableRoom("lobby"))
     }
 
     func testPersistableRoomRejectsEmpty() {
-        XCTAssertFalse(RRCHub._persistableRoom(""))
+        XCTAssertFalse(RRCHub.persistableRoom(""))
     }
 
     func testPersistableRoomRejectsStar() {
-        XCTAssertFalse(RRCHub._persistableRoom("*"))
+        XCTAssertFalse(RRCHub.persistableRoom("*"))
     }
 }
 
@@ -906,14 +906,14 @@ final class RRCHubHistoryPersistenceTests: XCTestCase {
 
         let src = Data(repeating: 0x11, count: 8)
         let msg = RRCMessage(kind: "msg", room: "lobby", src: src, nick: "alice", text: "test", ts: 1000)
-        h._appendHistory(room: "lobby", msg: msg)
+        h.appendHistory(room: "lobby", msg: msg)
 
         // Load into a fresh hub
         let mgr2 = RRCManager(identity: Identity(), storagePath: tmpDir)
-        mgr2._hubs = mgr._hubs  // share hub list for path resolution
+        mgr2.lockedHubs = mgr.lockedHubs  // share hub list for path resolution
         let h2 = mgr2.addHub(hash: Data(repeating: 0xAB, count: 16))
         _ = h2.addRoom("lobby")
-        h2._loadHistory()
+        h2.loadHistory()
 
         let msgs = h2.getMessages(room: "lobby")
         XCTAssertEqual(msgs.count, 1)
@@ -925,12 +925,12 @@ final class RRCHubHistoryPersistenceTests: XCTestCase {
         let h = mgr.addHub(hash: Data(repeating: 0xAB, count: 16))
         _ = h.addRoom("lobby")
         let msg = RRCMessage(kind: "msg", room: "lobby", src: Data(), nick: nil, text: "hi", ts: 0)
-        h._appendHistory(room: "lobby", msg: msg)
+        h.appendHistory(room: "lobby", msg: msg)
 
-        let path = mgr._historyPath(hub: h, room: "lobby")
+        let path = mgr.historyPath(hub: h, room: "lobby")
         XCTAssertTrue(FileManager.default.fileExists(atPath: path.path))
 
-        h._deleteHistory(room: "lobby")
+        h.deleteHistory(room: "lobby")
         XCTAssertFalse(FileManager.default.fileExists(atPath: path.path))
     }
 }
@@ -982,7 +982,7 @@ final class RRCManagerTests: XCTestCase {
         let mgr = makeManager()
         let h = mgr.addHub(hash: Data(repeating: 0xAB, count: 16))
         _ = h.addRoom("lobby")
-        h._onPacket(makePkt(type: RRC.MessageType.msg, src: makeSrc(), room: "lobby", body: .text("ping")))
+        h.onPacket(makePkt(type: RRC.MessageType.msg, src: makeSrc(), room: "lobby", body: .text("ping")))
         XCTAssertTrue(mgr.hasUnread)
     }
 
@@ -990,7 +990,7 @@ final class RRCManagerTests: XCTestCase {
         let mgr = makeManager()
         let h = mgr.addHub(hash: Data(repeating: 0xAB, count: 16))
         _ = h.addRoom("lobby")
-        h._onPacket(makePkt(type: RRC.MessageType.msg, src: makeSrc(), room: "lobby", body: .text("hi")))
+        h.onPacket(makePkt(type: RRC.MessageType.msg, src: makeSrc(), room: "lobby", body: .text("hi")))
         XCTAssertTrue(h.unreadRooms.contains("lobby"))
         mgr.setActive(hub: h, room: "lobby")
         XCTAssertFalse(h.unreadRooms.contains("lobby"))
@@ -1017,14 +1017,14 @@ final class RRCManagerTests: XCTestCase {
         _ = h.addRoom("lobby")
         _ = h.addRoom("dev")
         var joinsSent: [String] = []
-        h._sendHook = { data in
+        h.sendHook = { data in
             if let env = try? decodeSentEnv(data),
                let tv = env[RRC.Key.type], case .uint(let t) = tv, Int(t) == RRC.MessageType.join,
                let rv = env[RRC.Key.room], case .text(let r) = rv {
                 joinsSent.append(r)
             }
         }
-        mgr._onWelcome(hub: h)
+        mgr.onWelcome(hub: h)
         XCTAssertTrue(joinsSent.contains("lobby"))
         XCTAssertTrue(joinsSent.contains("dev"))
     }
@@ -1091,80 +1091,80 @@ final class RRCManagerPersistenceTests: XCTestCase {
 }
 
 // MARK: - RRCHub history behaviour (Phase 22)
-// Tests for _perRoomCap, _filterHistory, _ephemeralNoticesTimeout, _cleanHistory,
-// per-room cap trimming in _recordMessage/_recordSystem, and _loadHistory filter+cap.
+// Tests for perRoomCap, filterHistory, ephemeralNoticesTimeout, cleanHistory,
+// per-room cap trimming in recordMessage/recordSystem, and loadHistory filter+cap.
 
 final class RRCHubHistoryBehaviorTests: XCTestCase {
 
-    // ------------------------------------------------------------------ _perRoomCap
+    // ------------------------------------------------------------------ perRoomCap
 
     func testPerRoomCapNilByDefault() {
         // No manager override → cap is nil (no limit)
         let h = makeHub()
-        XCTAssertNil(h._perRoomCap())
+        XCTAssertNil(h.perRoomCap())
     }
 
     func testPerRoomCapFromManagerOverride() {
         let mgr = makeManager()
         let h = mgr.addHub(hash: Data(repeating: 0xCD, count: 16))
-        mgr._rrcHistoryPerRoomCapOverride = 5
-        XCTAssertEqual(h._perRoomCap(), 5)
+        mgr.rrcHistoryPerRoomCapOverride = 5
+        XCTAssertEqual(h.perRoomCap(), 5)
     }
 
     func testPerRoomCapZeroMeansNil() {
         let mgr = makeManager()
         let h = mgr.addHub(hash: Data(repeating: 0xCD, count: 16))
-        mgr._rrcHistoryPerRoomCapOverride = 0
-        XCTAssertNil(h._perRoomCap())
+        mgr.rrcHistoryPerRoomCapOverride = 0
+        XCTAssertNil(h.perRoomCap())
     }
 
     func testPerRoomCapNegativeMeansNil() {
         let mgr = makeManager()
         let h = mgr.addHub(hash: Data(repeating: 0xCD, count: 16))
-        mgr._rrcHistoryPerRoomCapOverride = -1
-        XCTAssertNil(h._perRoomCap())
+        mgr.rrcHistoryPerRoomCapOverride = -1
+        XCTAssertNil(h.perRoomCap())
     }
 
-    // ----------------------------------------------------------------- _filterHistory
+    // ----------------------------------------------------------------- filterHistory
 
     func testFilterHistoryDefaultsTrue() {
         let h = makeHub()
-        XCTAssertTrue(h._filterHistory())
+        XCTAssertTrue(h.filterHistory())
     }
 
     func testFilterHistoryOverrideFalse() {
         let mgr = makeManager()
         let h = mgr.addHub(hash: Data(repeating: 0xCD, count: 16))
-        mgr._rrcFilterLoadedHistoryOverride = false
-        XCTAssertFalse(h._filterHistory())
+        mgr.rrcFilterLoadedHistoryOverride = false
+        XCTAssertFalse(h.filterHistory())
     }
 
-    // -------------------------------------------------- _ephemeralNoticesTimeout
+    // -------------------------------------------------- ephemeralNoticesTimeout
 
     func testEphemeralNoticesTimeoutDefaultIs600() {
         let h = makeHub()
-        XCTAssertEqual(h._ephemeralNoticesTimeout(), 600.0)
+        XCTAssertEqual(h.ephemeralNoticesTimeout(), 600.0)
     }
 
     func testEphemeralNoticesTimeoutOverride() {
         let mgr = makeManager()
         let h = mgr.addHub(hash: Data(repeating: 0xCD, count: 16))
-        mgr._rrcEphemeralNoticesTimeoutOverride = 300.0
-        XCTAssertEqual(h._ephemeralNoticesTimeout(), 300.0)
+        mgr.rrcEphemeralNoticesTimeoutOverride = 300.0
+        XCTAssertEqual(h.ephemeralNoticesTimeout(), 300.0)
     }
 
-    // ----------------------------------------- _recordMessage cap trimming
+    // ----------------------------------------- recordMessage cap trimming
 
     func testRecordMessageCapTruncatesBuffer() {
         let mgr = makeManager()
         let h = mgr.addHub(hash: Data(repeating: 0xCD, count: 16))
-        mgr._rrcHistoryPerRoomCapOverride = 3
+        mgr.rrcHistoryPerRoomCapOverride = 3
         _ = h.addRoom("test")
         for i in 0..<5 {
             let ts = Int64(Date().timeIntervalSince1970 * 1000) + Int64(i)
             let msg = RRCMessage(kind: "msg", room: "test", src: makeSrc(UInt8(i)),
                                   nick: "n\(i)", text: "msg\(i)", ts: ts)
-            h._recordMessage(msg)
+            h.recordMessage(msg)
         }
         let msgs = h.getMessages(room: "test")
         XCTAssertEqual(msgs.count, 3, "buffer should be capped at 3")
@@ -1176,13 +1176,13 @@ final class RRCHubHistoryBehaviorTests: XCTestCase {
     func testRecordSystemCapTruncatesBuffer() {
         let mgr = makeManager()
         let h = mgr.addHub(hash: Data(repeating: 0xCD, count: 16))
-        mgr._rrcHistoryPerRoomCapOverride = 2
+        mgr.rrcHistoryPerRoomCapOverride = 2
         _ = h.addRoom("sys")
-        for i in 0..<4 { h._recordSystem(room: "sys", text: "s\(i)") }
+        for i in 0..<4 { h.recordSystem(room: "sys", text: "s\(i)") }
         XCTAssertEqual(h.getMessages(room: "sys").count, 2)
     }
 
-    // -------------------------------------- _loadHistory filter + cap
+    // -------------------------------------- loadHistory filter + cap
 
     func testLoadHistoryFiltersSystemMessages() throws {
         let dir = URL(fileURLWithPath: NSTemporaryDirectory())
@@ -1190,21 +1190,21 @@ final class RRCHubHistoryBehaviorTests: XCTestCase {
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: dir) }
 
-        // Writer: append 1 "msg" + 1 "system" entry via _appendHistory
+        // Writer: append 1 "msg" + 1 "system" entry via appendHistory
         let wMgr = RRCManager(identity: Identity(), storagePath: dir)
         let wHub = wMgr.addHub(hash: Data(repeating: 0xAB, count: 16))
         _ = wHub.addRoom("gr")
         let baseTs = Int64(Date().timeIntervalSince1970 * 1000)
-        wHub._appendHistory(room: "gr",
+        wHub.appendHistory(room: "gr",
             msg: RRCMessage(kind: "msg",    room: "gr", src: nil, nick: nil, text: "hello",  ts: baseTs))
-        wHub._appendHistory(room: "gr",
+        wHub.appendHistory(room: "gr",
             msg: RRCMessage(kind: "system", room: "gr", src: nil, nick: nil, text: "joined", ts: baseTs + 1))
 
         // Reader: filter = true (default) — system messages should be dropped
         let rMgr = RRCManager(identity: Identity(), storagePath: dir)
         let rHub = rMgr.addHub(hash: Data(repeating: 0xAB, count: 16))
         _ = rHub.addRoom("gr")
-        rHub._loadHistory()
+        rHub.loadHistory()
 
         let msgs = rHub.getMessages(room: "gr")
         XCTAssertEqual(msgs.count, 1, "system message should be filtered on load")
@@ -1223,17 +1223,17 @@ final class RRCHubHistoryBehaviorTests: XCTestCase {
         _ = wHub.addRoom("gr")
         let baseTs = Int64(Date().timeIntervalSince1970 * 1000)
         for (i, kind) in ["msg", "system", "notice"].enumerated() {
-            wHub._appendHistory(room: "gr",
+            wHub.appendHistory(room: "gr",
                 msg: RRCMessage(kind: kind, room: "gr", src: nil, nick: nil,
                                  text: kind + "_text", ts: baseTs + Int64(i)))
         }
 
         // Reader: filter = false → all 3 entries should load
         let rMgr = RRCManager(identity: Identity(), storagePath: dir)
-        rMgr._rrcFilterLoadedHistoryOverride = false
+        rMgr.rrcFilterLoadedHistoryOverride = false
         let rHub = rMgr.addHub(hash: Data(repeating: 0xAB, count: 16))
         _ = rHub.addRoom("gr")
-        rHub._loadHistory()
+        rHub.loadHistory()
 
         XCTAssertEqual(rHub.getMessages(room: "gr").count, 3,
                        "all 3 kinds should load when filter=false")
@@ -1246,7 +1246,7 @@ final class RRCHubHistoryBehaviorTests: XCTestCase {
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: dir) }
 
-        // Writer manager: append 5 messages to the history file via the known-good _appendHistory
+        // Writer manager: append 5 messages to the history file via the known-good appendHistory
         let wMgr = RRCManager(identity: Identity(), storagePath: dir)
         let wHub = wMgr.addHub(hash: Data(repeating: 0xAB, count: 16))
         _ = wHub.addRoom("cap")
@@ -1254,16 +1254,16 @@ final class RRCHubHistoryBehaviorTests: XCTestCase {
         for i in 0..<5 {
             let msg = RRCMessage(kind: "msg", room: "cap", src: nil, nick: nil,
                                   text: "m\(i)", ts: baseTs + Int64(i * 100))
-            wHub._appendHistory(room: "cap", msg: msg)
+            wHub.appendHistory(room: "cap", msg: msg)
         }
 
         // Reader manager: load with cap=2 and no filter → keep last 2 entries
         let rMgr = RRCManager(identity: Identity(), storagePath: dir)
-        rMgr._rrcHistoryPerRoomCapOverride = 2
-        rMgr._rrcFilterLoadedHistoryOverride = false
+        rMgr.rrcHistoryPerRoomCapOverride = 2
+        rMgr.rrcFilterLoadedHistoryOverride = false
         let rHub = rMgr.addHub(hash: Data(repeating: 0xAB, count: 16))
         _ = rHub.addRoom("cap")
-        rHub._loadHistory()
+        rHub.loadHistory()
 
         let msgs = rHub.getMessages(room: "cap")
         XCTAssertEqual(msgs.count, 2, "only the 2 most recent should be kept")
@@ -1292,18 +1292,18 @@ final class RRCHubHistoryBehaviorTests: XCTestCase {
                                             ("msg", "m1"), ("system", "s2"),
                                             ("msg", "m2")]
         for (i, (kind, text)) in entries.enumerated() {
-            wHub._appendHistory(room: "fc",
+            wHub.appendHistory(room: "fc",
                 msg: RRCMessage(kind: kind, room: "fc", src: nil, nick: nil,
                                 text: text, ts: baseTs + Int64(i)))
         }
 
         // Load with filter=true (drops system) and cap=2 → should keep msg1, msg2
         let rMgr = RRCManager(identity: Identity(), storagePath: dir)
-        rMgr._rrcFilterLoadedHistoryOverride = true
-        rMgr._rrcHistoryPerRoomCapOverride  = 2
+        rMgr.rrcFilterLoadedHistoryOverride = true
+        rMgr.rrcHistoryPerRoomCapOverride  = 2
         let rHub = rMgr.addHub(hash: Data(repeating: 0xAC, count: 16))
         _ = rHub.addRoom("fc")
-        rHub._loadHistory()
+        rHub.loadHistory()
 
         let msgs = rHub.getMessages(room: "fc")
         XCTAssertEqual(msgs.count, 2, "cap applied after filter: expect 2 msgs")
@@ -1311,20 +1311,20 @@ final class RRCHubHistoryBehaviorTests: XCTestCase {
         XCTAssertEqual(msgs.last?.text,  "m2")
     }
 
-    // ------------------------------------------------- _cleanHistory
+    // ------------------------------------------------- cleanHistory
 
     func testCleanHistoryRemovesOldEphemeralMessages() {
         let mgr = makeManager()
         let h = mgr.addHub(hash: Data(repeating: 0xCD, count: 16))
-        mgr._rrcEphemeralNoticesTimeoutOverride = 1.0  // 1-second lifetime
+        mgr.rrcEphemeralNoticesTimeoutOverride = 1.0  // 1-second lifetime
         _ = h.addRoom("cr")
         // Inject a system message with a timestamp 10 seconds in the past
         let oldTs = Int64((Date().timeIntervalSince1970 - 10.0) * 1000)
-        h._testInjectMessage(room: "cr",
+        h.testInjectMessage(room: "cr",
                              msg: RRCMessage(kind: "system", room: "cr",
                                              src: nil, nick: nil, text: "old", ts: oldTs))
-        h._testResetHistoryClean()
-        h._cleanHistory()
+        h.testResetHistoryClean()
+        h.cleanHistory()
         XCTAssertTrue(h.getMessages(room: "cr").isEmpty,
                       "old system message should have been cleaned")
     }
@@ -1332,14 +1332,14 @@ final class RRCHubHistoryBehaviorTests: XCTestCase {
     func testCleanHistoryKeepsRecentEphemeralMessages() {
         let mgr = makeManager()
         let h = mgr.addHub(hash: Data(repeating: 0xCD, count: 16))
-        mgr._rrcEphemeralNoticesTimeoutOverride = 600.0
+        mgr.rrcEphemeralNoticesTimeoutOverride = 600.0
         _ = h.addRoom("kr")
         let recentTs = Int64(Date().timeIntervalSince1970 * 1000)
-        h._testInjectMessage(room: "kr",
+        h.testInjectMessage(room: "kr",
                              msg: RRCMessage(kind: "system", room: "kr",
                                              src: nil, nick: nil, text: "new", ts: recentTs))
-        h._testResetHistoryClean()
-        h._cleanHistory()
+        h.testResetHistoryClean()
+        h.cleanHistory()
         XCTAssertEqual(h.getMessages(room: "kr").count, 1,
                        "recent system message should not be cleaned")
     }
@@ -1347,37 +1347,37 @@ final class RRCHubHistoryBehaviorTests: XCTestCase {
     func testCleanHistoryDoesNotCleanNonEphemeralMessages() {
         let mgr = makeManager()
         let h = mgr.addHub(hash: Data(repeating: 0xCD, count: 16))
-        mgr._rrcEphemeralNoticesTimeoutOverride = 0.001  // very short — everything old gets swept
+        mgr.rrcEphemeralNoticesTimeoutOverride = 0.001  // very short — everything old gets swept
         _ = h.addRoom("ne")
         // A "msg" kind message with a very old timestamp — should NOT be swept
         let oldTs = Int64((Date().timeIntervalSince1970 - 9999.0) * 1000)
-        h._testInjectMessage(room: "ne",
+        h.testInjectMessage(room: "ne",
                              msg: RRCMessage(kind: "msg", room: "ne",
                                              src: nil, nick: nil, text: "keep", ts: oldTs))
-        h._testResetHistoryClean()
-        h._cleanHistory()
+        h.testResetHistoryClean()
+        h.cleanHistory()
         XCTAssertEqual(h.getMessages(room: "ne").count, 1,
-                       "non-ephemeral 'msg' kind must never be removed by _cleanHistory")
+                       "non-ephemeral 'msg' kind must never be removed by cleanHistory")
     }
 
     func testCleanHistoryRespectsCooldown() {
         let mgr = makeManager()
         let h = mgr.addHub(hash: Data(repeating: 0xCD, count: 16))
-        mgr._rrcEphemeralNoticesTimeoutOverride = 0.001  // so old messages are swept
+        mgr.rrcEphemeralNoticesTimeoutOverride = 0.001  // so old messages are swept
         _ = h.addRoom("cool")
         let oldTs = Int64((Date().timeIntervalSince1970 - 10.0) * 1000)
 
-        // First call: _lastHistoryClean = .distantPast → runs, sweeps "x", updates clock
-        h._testInjectMessage(room: "cool",
+        // First call: lastHistoryClean = .distantPast → runs, sweeps "x", updates clock
+        h.testInjectMessage(room: "cool",
                              msg: RRCMessage(kind: "system", room: "cool",
                                              src: nil, nick: nil, text: "x", ts: oldTs))
-        h._cleanHistory()
+        h.cleanHistory()
 
         // Inject "x2" (also old) immediately after — clock just updated, cooldown not expired
-        h._testInjectMessage(room: "cool",
+        h.testInjectMessage(room: "cool",
                              msg: RRCMessage(kind: "system", room: "cool",
                                              src: nil, nick: nil, text: "x2", ts: oldTs))
-        h._cleanHistory()  // second call: < 5s since last → skipped
+        h.cleanHistory()  // second call: < 5s since last → skipped
 
         XCTAssertEqual(h.getMessages(room: "cool").count, 1,
                        "cooldown prevents immediate re-sweep; x2 should still be present")

@@ -37,43 +37,43 @@ final class RRCResourceReceiveTests: XCTestCase {
         ]
         if let room { pairs.append((.uint(UInt64(RRC.Key.room)), .text(room))) }
         pairs.append((.uint(UInt64(RRC.Key.body)), .map(bodyPairs)))
-        h._onPacket(CBOR.encode(.map(pairs)))
+        h.onPacket(CBOR.encode(.map(pairs)))
     }
 
-    // MARK: - _resourceAdvertised (size cap)
+    // MARK: - resourceAdvertised (size cap)
 
     func testResourceAdvertisedAcceptsWithinCap() {
         let (h, _) = makeHub()
-        XCTAssertTrue(h._resourceAdvertised(size: 1000))
-        XCTAssertTrue(h._resourceAdvertised(size: RRCHub.defaultMaxAcceptedResourceSize)) // at cap
+        XCTAssertTrue(h.resourceAdvertised(size: 1000))
+        XCTAssertTrue(h.resourceAdvertised(size: RRCHub.defaultMaxAcceptedResourceSize)) // at cap
     }
 
     func testResourceAdvertisedRejectsOverCap() {
         let (h, _) = makeHub()
-        XCTAssertFalse(h._resourceAdvertised(size: RRCHub.defaultMaxAcceptedResourceSize + 1))
+        XCTAssertFalse(h.resourceAdvertised(size: RRCHub.defaultMaxAcceptedResourceSize + 1))
     }
 
     func testResourceAdvertisedRejectsWhenCapDisabled() {
         let (h, mgr) = makeHub()
         mgr.maxAcceptedResourceSize = 0
-        XCTAssertFalse(h._resourceAdvertised(size: 1))
+        XCTAssertFalse(h.resourceAdvertised(size: 1))
     }
 
     func testResourceAdvertisedHonorsConfiguredCap() {
         let (h, mgr) = makeHub()
         mgr.maxAcceptedResourceSize = 500
-        XCTAssertTrue(h._resourceAdvertised(size: 500))
-        XCTAssertFalse(h._resourceAdvertised(size: 501))
+        XCTAssertTrue(h.resourceAdvertised(size: 500))
+        XCTAssertFalse(h.resourceAdvertised(size: 501))
     }
 
-    // MARK: - _resourceConcluded (routing)
+    // MARK: - resourceConcluded (routing)
 
     func testResourceConcludedMOTD() {
         let (h, _) = makeHub()
         let text = "Welcome to the hub, delivered by resource!"
         let payload = Data(text.utf8)
         storeExpectation(h, rid: Data([1]), kind: RRC.ResKind.motd, size: payload.count)
-        h._resourceConcluded(payload: payload)
+        h.resourceConcluded(payload: payload)
         XCTAssertEqual(h.motd, text)
     }
 
@@ -82,7 +82,7 @@ final class RRCResourceReceiveTests: XCTestCase {
         let text = "members in lobby: alice (abcdef012345), 1234567890abcdef1234567890abcdef"
         let payload = Data(text.utf8)
         storeExpectation(h, rid: Data([2]), kind: RRC.ResKind.notice, size: payload.count, room: "lobby")
-        h._resourceConcluded(payload: payload)
+        h.resourceConcluded(payload: payload)
         XCTAssertFalse((h.members["lobby"] ?? []).isEmpty,
                        "a /who reply delivered by resource must populate members")
     }
@@ -92,7 +92,7 @@ final class RRCResourceReceiveTests: XCTestCase {
         let text = "Registered public rooms\nlobby - General chat\ndev"
         let payload = Data(text.utf8)
         storeExpectation(h, rid: Data([3]), kind: RRC.ResKind.notice, size: payload.count)
-        h._resourceConcluded(payload: payload)
+        h.resourceConcluded(payload: payload)
         XCTAssertNotNil(h.availableRooms["lobby"])
         XCTAssertNotNil(h.availableRooms["dev"])
     }
@@ -102,7 +102,7 @@ final class RRCResourceReceiveTests: XCTestCase {
         let text = "server maintenance in 5 minutes"
         let payload = Data(text.utf8)
         storeExpectation(h, rid: Data([4]), kind: RRC.ResKind.notice, size: payload.count, room: "lobby")
-        h._resourceConcluded(payload: payload)
+        h.resourceConcluded(payload: payload)
         XCTAssertTrue(h.getMessages(room: "lobby").contains { $0.kind == "notice" && $0.text == text })
     }
 
@@ -110,7 +110,7 @@ final class RRCResourceReceiveTests: XCTestCase {
         let (h, _) = makeHub()
         let payload = Data(repeating: 0x11, count: 64)
         storeExpectation(h, rid: Data([5]), kind: RRC.ResKind.blob, size: payload.count)
-        h._resourceConcluded(payload: payload)
+        h.resourceConcluded(payload: payload)
         XCTAssertNil(h.motd)
     }
 
@@ -121,7 +121,7 @@ final class RRCResourceReceiveTests: XCTestCase {
         let payload = Data("Welcome!".utf8)
         // Expectation size deliberately wrong → no match → treated as blob → ignored.
         storeExpectation(h, rid: Data([6]), kind: RRC.ResKind.motd, size: payload.count + 99)
-        h._resourceConcluded(payload: payload)
+        h.resourceConcluded(payload: payload)
         XCTAssertNil(h.motd)
     }
 
@@ -130,7 +130,7 @@ final class RRCResourceReceiveTests: XCTestCase {
         let payload = Data("Welcome!".utf8)
         let wrongSha = Data(repeating: 0x00, count: 32)
         storeExpectation(h, rid: Data([7]), kind: RRC.ResKind.motd, size: payload.count, sha256: wrongSha)
-        h._resourceConcluded(payload: payload)
+        h.resourceConcluded(payload: payload)
         XCTAssertNil(h.motd, "a payload whose sha256 does not match the advertisement must be dropped")
     }
 
@@ -140,7 +140,7 @@ final class RRCResourceReceiveTests: XCTestCase {
         let payload = Data(text.utf8)
         let sha = Data(SHA256.hash(data: payload))
         storeExpectation(h, rid: Data([8]), kind: RRC.ResKind.motd, size: payload.count, sha256: sha)
-        h._resourceConcluded(payload: payload)
+        h.resourceConcluded(payload: payload)
         XCTAssertEqual(h.motd, text)
     }
 }
