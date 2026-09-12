@@ -420,7 +420,7 @@ public final class RRCHub {
 
     public func setNickOverride(_ nick: String?) {
         _lock.withLock {
-            nickOverride = (nick == nil || nick!.isEmpty) ? nil : nick
+            nickOverride = (nick?.isEmpty ?? true) ? nil : nick
         }
         manager?.save()
         manager?._notifyChange(self)

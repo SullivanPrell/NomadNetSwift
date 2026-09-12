@@ -393,7 +393,7 @@ public struct MicronParser {
                 // so a multi-scalar grapheme also falls back.
                 let candidate = workChars[1]
                 let scalars = candidate.unicodeScalars
-                let keep = scalars.count == 1 && scalars.first!.value >= 32
+                let keep = scalars.count == 1 && (scalars.first?.value ?? 0) >= 32
                 fillChar = keep ? candidate : "\u{2500}"
             } else {
                 fillChar = "\u{2500}"

@@ -133,10 +133,10 @@ public enum NomadNetUtil {
                 scalars.append(scalar)
             // Space separator → normalize to plain space
             case .spaceSeparator:
-                scalars.append(Unicode.Scalar(0x20)!)
+                scalars.append(" ")
             // Line / paragraph separators → plain space
             case .lineSeparator, .paragraphSeparator:
-                scalars.append(Unicode.Scalar(0x20)!)
+                scalars.append(" ")
             // Spacing combining mark (Mc, e.g. Indic vowel signs) → keep
             case .spacingMark:
                 scalars.append(scalar)
