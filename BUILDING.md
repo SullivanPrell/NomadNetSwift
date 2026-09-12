@@ -7,7 +7,7 @@ This project is a standard Swift Package. You can build and test it using the Sw
 - **Swift 5.9 or later**
 - **macOS** (for full platform support)
 
-## Build Commands
+## Build commands
 
 To build the library:
 
@@ -21,7 +21,7 @@ To build for release with optimizations:
 swift build -c release
 ```
 
-## Running Tests
+## Running tests
 
 The project includes an extensive unit test suite. To run all tests:
 
@@ -35,7 +35,7 @@ To run a specific test target:
 swift test --filter NomadNetTests
 ```
 
-## Project Cleanup
+## Project cleanup
 
 If you need to clear the build artifacts and start fresh:
 

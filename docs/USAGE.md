@@ -20,8 +20,8 @@ Common format codes (toggled, then reset with `` `` ``):
 | `` `! `` | toggle bold |
 | `` `_ `` | toggle underline |
 | `` `* `` | toggle italic |
-| `` `F `` *rgb* / `` `FT `` *rrggbb* | foreground colour (3- or 6-digit hex) |
-| `` `B `` *rgb* / `` `BT `` *rrggbb* | background colour |
+| `` `F `` *rgb* / `` `FT `` *rrggbb* | foreground color (3- or 6-digit hex) |
+| `` `B `` *rgb* / `` `BT `` *rrggbb* | background color |
 | `` `f `` / `` `b `` | reset foreground / background |
 | `` `` `` | reset all formatting |
 

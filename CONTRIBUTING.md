@@ -1,7 +1,7 @@
 # Contributing to NomadNetSwift
 
 NomadNetSwift targets **protocol parity with Python NomadNet**
-(<https://github.com/markqvist/NomadNet>) — Micron rendering, node serving, and
+(<https://github.com/markqvist/NomadNet>)—Micron rendering, node serving, and
 browsing must match the reference.
 
 ## Ground rules
@@ -9,7 +9,7 @@ browsing must match the reference.
 - **Test-driven**: failing test first, implement to green, commit. Keep the full
   `swift test` suite green (no regressions).
 - **Parity**: source comments reference the corresponding Python files
-  (`Node.py`, `MicronParser.py`, `Browser.py`, `RRC.py`) — keep logic aligned.
+  (`Node.py`, `MicronParser.py`, `Browser.py`, `RRC.py`)—keep logic aligned.
 
 ## Setup
 
@@ -41,6 +41,24 @@ RETICULUM_LOCAL_DEPS=1 swift test
 - Standard Swift PascalCase for types, camelCase for members.
 - Every major component has a `[Component]Tests.swift`.
 - New behavior must align with the Python reference and ship with tests.
+- Tests are XCTest, not swift-testing.
+- Style: [Google Swift Style Guide](https://google.github.io/swift/).
+
+## Style checks
+
+```sh
+make fmt      # swift format, license headers
+make check    # what CI runs: format, license headers, Vale prose lint
+```
+
+Vale lints Swift comments as prose, and finds them by scanning for `//`. A `//` inside
+a string literal therefore lints code, and acting on that finding would edit it. After
+a comment-only change, confirm the code is unchanged:
+
+```sh
+git status --porcelain | awk '{print $NF}' | grep '\.swift$' \
+    | xargs python3 .vale/tools/verify_code_unchanged.py
+```
 
 ## Submitting changes
 
