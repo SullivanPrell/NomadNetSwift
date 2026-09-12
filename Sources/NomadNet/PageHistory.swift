@@ -34,6 +34,7 @@ public final class PageHistory {
 
     // MARK: - Initialiser
 
+    /// Creates an empty history.
     public init() {
         entries = []
         position = -1

@@ -78,12 +78,16 @@ final class DirectoryEntryCreationTests: XCTestCase {
 
 final class DirectoryEntryTrustLevelTests: XCTestCase {
 
+    /// Pins the trust level raw values to the reference's.
+    ///
     /// Python: WARNING = 0x00, UNTRUSTED = 0x01, UNKNOWN = 0x02, TRUSTED = 0xFF
     func testWarningValue()   { XCTAssertEqual(DirectoryEntry.TrustLevel.warning.rawValue,   0x00) }
     func testUntrustedValue() { XCTAssertEqual(DirectoryEntry.TrustLevel.untrusted.rawValue, 0x01) }
     func testUnknownValue()   { XCTAssertEqual(DirectoryEntry.TrustLevel.unknown.rawValue,   0x02) }
     func testTrustedValue()   { XCTAssertEqual(DirectoryEntry.TrustLevel.trusted.rawValue,   0xFF) }
 
+    /// Pins the delivery raw values to the reference's.
+    ///
     /// Python: DIRECT = 0x01, PROPAGATED = 0x02
     func testDirectDelivery()     { XCTAssertEqual(DirectoryEntry.Delivery.direct.rawValue,     0x01) }
     func testPropagatedDelivery() { XCTAssertEqual(DirectoryEntry.Delivery.propagated.rawValue, 0x02) }
@@ -93,6 +97,8 @@ final class DirectoryEntryTrustLevelTests: XCTestCase {
 
 final class NNDirectoryConstantsTests: XCTestCase {
 
+    /// Pins the announce stream length to the value the reference uses.
+    ///
     /// Python: Directory.ANNOUNCE_STREAM_MAXLENGTH = 256
     func testAnnounceStreamMaxLength() {
         XCTAssertEqual(NNDirectory.announceStreamMaxLength, 256)

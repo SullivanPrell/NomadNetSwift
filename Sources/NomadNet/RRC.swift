@@ -31,14 +31,22 @@ extension NSLock {
 ///
 /// Corresponds to Python `RRCMessage` in `nomadnet/RRC.py`.
 public struct RRCMessage {
+    /// Message kind, as recorded in the room history log.
     public var kind:    String
+    /// Room the message belongs to, or `nil` for hub-level messages.
     public var room:    String?
+    /// Destination hash of the sender, or `nil` when unknown.
     public var src:     Data?
+    /// Sender nickname, when one was supplied.
     public var nick:    String?
+    /// Message body text.
     public var text:    String
+    /// Unix timestamp, in seconds, the message was stamped with.
     public var ts:      Int64
+    /// Whether the message mentions the local peer.
     public var mention: Bool = false
 
+    /// Creates a message from its decoded fields.
     public init(kind: String, room: String?, src: Data?, nick: String?,
                 text: String, ts: Int64) {
         self.kind = kind; self.room = room; self.src = src
@@ -48,10 +56,14 @@ public struct RRCMessage {
 
 // MARK: - RRC constants
 
+/// Wire constants and envelope coding for the RRC protocol.
 public enum RRC {
+    /// Protocol version carried in every envelope.
     public static let version: Int = 1
 
-    /// Integer CBOR map keys — K_V, K_T, K_ID, K_TS, K_SRC, K_ROOM, K_BODY, K_NICK
+    // The members below are the reference's own map-key names.
+    // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
+    /// Integer CBOR map keys — K_V, K_T, K_ID, K_TS, K_SRC, K_ROOM, K_BODY, K_NICK.
     public enum Key {
         public static let version: Int = 0
         public static let type:    Int = 1
@@ -63,14 +75,18 @@ public enum RRC {
         public static let nick:    Int = 7
     }
 
-    /// HELLO body indices — B_HELLO_NAME, B_HELLO_VER, B_HELLO_CAPS
+    // The members below are the reference's own field names.
+    // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
+    /// HELLO body indices — B_HELLO_NAME, B_HELLO_VER, B_HELLO_CAPS.
     public enum HelloField {
         public static let name: Int = 0
         public static let ver:  Int = 1
         public static let caps: Int = 2
     }
 
-    /// WELCOME body indices — B_WELCOME_HUB, B_WELCOME_VER, B_WELCOME_CAPS, B_WELCOME_LIMITS
+    // The members below are the reference's own field names.
+    // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
+    /// WELCOME body indices — B_WELCOME_HUB, B_WELCOME_VER, B_WELCOME_CAPS, B_WELCOME_LIMITS.
     public enum WelcomeField {
         public static let hub:    Int = 0
         public static let ver:    Int = 1
@@ -78,13 +94,17 @@ public enum RRC {
         public static let limits: Int = 3
     }
 
-    /// Capability flag indices — CAP_RESOURCE_ENVELOPE, CAP_ACTION
+    // The members below are the reference's own field names.
+    // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
+    /// Capability flag indices — CAP_RESOURCE_ENVELOPE, CAP_ACTION.
     public enum Cap {
         public static let resourceEnvelope: Int = 0
         public static let action:           Int = 1
     }
 
-    /// Indices into the WELCOME limits dict — L_MAX_NICK_BYTES, …, L_RATE_LIMIT_MSGS_PER_MINUTE
+    // The members below are the reference's own field names.
+    // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
+    /// Indices into the WELCOME limits dict — L_MAX_NICK_BYTES, …, L_RATE_LIMIT_MSGS_PER_MINUTE.
     public enum LimitField {
         public static let maxNickBytes:            Int = 0
         public static let maxRoomNameBytes:        Int = 1
@@ -93,7 +113,9 @@ public enum RRC {
         public static let rateLimitMsgsPerMinute:  Int = 4
     }
 
-    /// Indices into T_RESOURCE_ENVELOPE body — B_RES_ID, …, B_RES_ENCODING
+    // The members below are the reference's own field names.
+    // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
+    /// Indices into T_RESOURCE_ENVELOPE body — B_RES_ID, …, B_RES_ENCODING.
     public enum ResField {
         public static let id:       Int = 0
         public static let kind:     Int = 1
@@ -102,14 +124,18 @@ public enum RRC {
         public static let encoding: Int = 4
     }
 
-    /// Resource kind strings — RES_KIND_NOTICE, RES_KIND_MOTD, RES_KIND_BLOB
+    // The members below are the reference's own field names.
+    // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
+    /// Resource kind strings — RES_KIND_NOTICE, RES_KIND_MOTD, RES_KIND_BLOB.
     public enum ResKind {
         public static let notice: String = "notice"
         public static let motd:   String = "motd"
         public static let blob:   String = "blob"
     }
 
-    /// CBOR text keys used in per-room history log entries — H_KIND, H_SRC, H_NICK, …
+    // The members below are the reference's own field names.
+    // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
+    /// CBOR text keys used in per-room history log entries.
     public enum HistKey {
         public static let kind:    String = "k"
         public static let src:     String = "s"
@@ -119,13 +145,20 @@ public enum RRC {
         public static let mention: String = "m"
     }
 
-    /// Default hub limits — DEFAULT_MAX_NICK_BYTES, …
+    /// Default maximum nickname length in bytes.
     public static let defaultMaxNickBytes:  Int = 32
+    /// Default maximum room-name length in bytes.
     public static let defaultMaxRoomBytes:  Int = 64
+    /// Default maximum message body length in bytes.
     public static let defaultMaxMsgBytes:   Int = 350
+    /// Default maximum rooms one session may join.
     public static let defaultMaxRooms:      Int = 32
+    /// Default message rate limit per minute.
     public static let defaultRatePerMinute: Int = 240
 
+    // The members below are the reference's own message-type names.
+    // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
+    /// Integer message-type codes carried under `Key.type`.
     public enum MessageType {
         public static let hello:            Int = 1
         public static let welcome:          Int = 2
@@ -142,21 +175,32 @@ public enum RRC {
         public static let resourceEnvelope: Int = 50
     }
 
+    /// Default destination name a hub is reached at.
     public static let defaultDestName: String = "rrc.hub"
 
     // MARK: - Envelope
 
+    /// Decoded RRC envelope.
     public struct Envelope {
+        /// Protocol version the envelope was encoded with.
         public let version: Int
+        /// Message-type code, one of `MessageType`.
         public let type:    Int
+        /// Message identifier.
         public let id:      Data
+        /// Unix timestamp, in seconds, the envelope was stamped with.
         public let ts:      Int64
+        /// Destination hash of the sender.
         public let src:     Data
+        /// Room the message belongs to, or `nil` for hub-level messages.
         public var room:    String?
+        /// Message body, when the type carries one.
         public var body:    String?
+        /// Sender nickname, when one was supplied.
         public var nick:    String?
     }
 
+    /// Builds an envelope, supplying a random identifier and the current time when they are omitted.
     public static func makeEnvelope(type: Int, src: Data, mid: Data? = nil, ts: Int64? = nil,
                                      room: String? = nil, body: String? = nil,
                                      nick: String? = nil) -> Envelope {
@@ -166,6 +210,7 @@ public enum RRC {
                  src:  src, room: room, body: body, nick: nick)
     }
 
+    /// Encodes `env` to its CBOR wire representation.
     public static func encode(_ env: Envelope) throws -> Data {
         var pairs: [(CBOR.Value, CBOR.Value)] = [
             (.uint(UInt64(Key.version)), .uint(UInt64(env.version))),
@@ -180,6 +225,7 @@ public enum RRC {
         return CBOR.encode(.map(pairs))
     }
 
+    /// Decodes an envelope from its CBOR wire representation.
     public static func decode(_ data: Data) throws -> Envelope {
         let value = try CBOR.decode(data)
         guard case .map(let pairs) = value else { throw DecodeError.unexpectedType("Expected CBOR map") }
@@ -205,6 +251,7 @@ public enum RRC {
                         ts: Int64(bitPattern: tsRaw), src: src, room: room, body: body, nick: nick)
     }
 
+    /// Failures raised while decoding an envelope.
     public enum DecodeError: Error {
         case missingField(String)
         case unexpectedType(String)
@@ -213,6 +260,7 @@ public enum RRC {
 
 // MARK: - RRCHubError
 
+/// Failures raised by hub operations.
 public enum RRCHubError: Error {
     case notConnected
     case emptyRoom
@@ -230,42 +278,67 @@ public final class RRCHub {
 
     // MARK: Status
 
+    /// Connection state of a hub.
     public enum Status: Int {
         case disconnected = 0, connecting = 1, connected = 2, failed = 3
     }
 
     // MARK: Public read-only state
 
+    /// Destination hash of the hub.
     public let hubHash: Data
+    /// Destination name the hub is reached at.
     public let destName: String
+    /// Local display name for the hub.
     public var name: String
 
+    /// Current connection state.
     public private(set) var status:      Status = .disconnected
+    /// Human-readable form of `status`.
     public private(set) var statusText:  String = "Disconnected"
+    /// Whether the hub has answered HELLO with WELCOME.
     public private(set) var welcomed:    Bool   = false
+    /// Name the hub reported in WELCOME.
     public private(set) var hubName:     String? = nil
+    /// Version the hub reported in WELCOME.
     public private(set) var hubVersion:  String? = nil
+    /// Capability flags the hub reported in WELCOME.
     public private(set) var hubCaps:     [Int: Bool] = [:]
+    /// Message of the day the hub last published.
     public              var motd:        String? = nil
 
     // Hub-advertised limits (updated on T_WELCOME)
+    /// Maximum nickname length the hub accepts, in bytes.
     public private(set) var maxNickBytes:          Int = RRC.defaultMaxNickBytes
+    /// Maximum room-name length the hub accepts, in bytes.
     public private(set) var maxRoomNameBytes:      Int = RRC.defaultMaxRoomBytes
+    /// Maximum message body length the hub accepts, in bytes.
     public private(set) var maxMsgBodyBytes:       Int = RRC.defaultMaxMsgBytes
+    /// Maximum rooms one session may join.
     public private(set) var maxRoomsPerSession:    Int = RRC.defaultMaxRooms
+    /// Messages per minute the hub accepts from one session.
     public private(set) var rateLimitMsgsPerMinute:Int = RRC.defaultRatePerMinute
 
     // Room / message / member state (lock-protected)
+    /// Rooms this session has joined.
     public private(set) var rooms:       Set<String> = []
+    /// Rooms holding messages the user has not read.
     public private(set) var unreadRooms: Set<String> = []
+    /// Rooms holding an unread message that mentions the user.
     public private(set) var mentionRooms:Set<String> = []
+    /// Hub-level notices received outside any room.
     public private(set) var notices:     [RRCMessage] = []
+    /// Rooms the hub advertised, mapped to their topics.
     public private(set) var availableRooms: [String: String?] = [:]
 
     // Settings
+    /// Whether the hub is redialled after an unexpected disconnect.
     public var autoReconnect: Bool = false
+    /// Whether the room list is requested on connect.
     public var autoList:      Bool = false
+    /// Whether the member list is requested on join.
     public var autoWho:       Bool = false
+    /// Nickname used instead of the app-wide one, when set.
     public var nickOverride:  String? = nil
 
     // MARK: Internal state (accessible from tests via @testable import)
@@ -310,6 +383,7 @@ public final class RRCHub {
     private var helloTask:        Task<Void, Never>? = nil
     private var historyWriteFailed: Bool = false
     private var lastHistoryClean: Date = .distantPast
+    /// Time `cleanHistory` last removed an entry.
     public  var cleanLastRemoved:  Date = .distantPast
     private var resourceExpectations: [Data: ResourceExpectation] = [:]
 
@@ -335,6 +409,7 @@ public final class RRCHub {
 
     // MARK: Init
 
+    /// Creates a hub connection owned by `manager`.
     public init(manager: RRCManager, hubHash: Data, destName: String? = nil, name: String? = nil) {
         self.manager  = manager
         self.hubHash  = hubHash
@@ -344,6 +419,7 @@ public final class RRCHub {
 
     // MARK: - Room management
 
+    /// Adds `room` to the local room set and returns its normalized name.
     @discardableResult
     public func addRoom(_ room: String) -> String {
         let r = (try? normalizeRoom(room)) ?? room.lowercased().trimmingCharacters(in: .whitespaces)
@@ -356,6 +432,7 @@ public final class RRCHub {
         return r
     }
 
+    /// Drops `room` from the local room set along with its buffered messages.
     public func removeRoom(_ room: String) {
         guard let r = try? normalizeRoom(room) else { return }
         lock.withLock {
@@ -370,6 +447,7 @@ public final class RRCHub {
         manager?.notifyChange(self)
     }
 
+    /// Clears the buffered messages for `room`.
     public func clearMessages(_ room: String) {
         guard let r = try? normalizeRoom(room) else { return }
         lock.withLock {
@@ -381,11 +459,13 @@ public final class RRCHub {
         manager?.notifyChange(self)
     }
 
+    /// Returns the member destination hashes last reported for `room`.
     public func getMembers(room: String) -> [Data] {
         guard let r = try? normalizeRoom(room) else { return [] }
         return lock.withLock { Array(members[r] ?? []) }
     }
 
+    /// Marks `room` read, clearing its unread and mention flags.
     public func markRead(_ room: String) {
         guard let r = try? normalizeRoom(room) else { return }
         lock.withLock {
@@ -395,6 +475,7 @@ public final class RRCHub {
         manager?.notifyChange(self)
     }
 
+    /// Returns the buffered messages for `room`, oldest first.
     public func getMessages(room: String) -> [RRCMessage] {
         guard let r = try? normalizeRoom(room) else { return [] }
         return lock.withLock { Array(messages[r] ?? []) }
@@ -416,6 +497,7 @@ public final class RRCHub {
         }
     }
 
+    /// Returns `room` lowercased and trimmed, rejecting empty or oversized names.
     public func normalizeRoom(_ room: String) throws -> String {
         let r = room.trimmingCharacters(in: .whitespaces).lowercased()
         guard !r.isEmpty else { throw RRCHubError.emptyRoom }
@@ -424,17 +506,20 @@ public final class RRCHub {
 
     // MARK: - Nick / display name
 
+    /// Returns the nickname last seen for `peer`, or its short hash.
     public func displayNameFor(_ peer: Data) -> String {
         let nick = lock.withLock { nicks[peer] }
         if let n = nick, !n.isEmpty { return n }
         return peer.hex.prefix(12).description
     }
 
+    /// Returns the nickname this session sends, preferring the override.
     public func getEffectiveNick() -> String? {
         if let n = nickOverride, !n.isEmpty { return n }
         return manager?.getNickname()
     }
 
+    /// Sets the nickname used instead of the app-wide one.
     public func setNickOverride(_ nick: String?) {
         lock.withLock {
             nickOverride = (nick?.isEmpty ?? true) ? nil : nick
@@ -445,18 +530,21 @@ public final class RRCHub {
 
     // MARK: - Settings
 
+    /// Enables or disables redialling after an unexpected disconnect.
     public func setAutoReconnect(_ enabled: Bool, save: Bool = true) {
         lock.withLock { autoReconnect = enabled }
         if save { manager?.save() }
         manager?.notifyChange(self)
     }
 
+    /// Enables or disables requesting the room list on connect.
     public func setAutoList(_ enabled: Bool, save: Bool = true) {
         lock.withLock { autoList = enabled }
         if save { manager?.save() }
         manager?.notifyChange(self)
     }
 
+    /// Enables or disables requesting the member list on join.
     public func setAutoWho(_ enabled: Bool, save: Bool = true) {
         lock.withLock { autoWho = enabled }
         if save { manager?.save() }
@@ -465,6 +553,7 @@ public final class RRCHub {
 
     // MARK: - Connection state machine
 
+    /// Opens a link to the hub and sends HELLO.
     public func connect() {
         let shouldSkip = lock.withLock { () -> Bool in
             guard status != .connecting && status != .connected else { return true }
@@ -595,6 +684,7 @@ public final class RRCHub {
         }
     }
 
+    /// Tears down the link and stops reconnecting.
     public func disconnect() {
         helloTask?.cancel(); helloTask = nil
         let link = lock.withLock { () -> Link? in
@@ -647,6 +737,7 @@ public final class RRCHub {
 
     // MARK: - Room messaging
 
+    /// Sends JOIN for `room`.
     public func joinRoom(_ room: String, key: String? = nil, silent: Bool = false) throws {
         let r = try normalizeRoom(room)
         let ownSrc = manager?.identity?.hash ?? Data()
@@ -666,6 +757,7 @@ public final class RRCHub {
         manager?.notifyChange(self)
     }
 
+    /// Sends PART for `room`.
     public func partRoom(_ room: String) {
         guard let r = try? normalizeRoom(room) else { return }
         let ownSrc = manager?.identity?.hash ?? Data()
@@ -677,6 +769,7 @@ public final class RRCHub {
         manager?.notifyChange(self)
     }
 
+    /// Sends `text` to `room` and returns the message identifier.
     @discardableResult
     public func sendMessage(room: String, text: String) throws -> Data {
         let r = try normalizeRoom(room)
@@ -701,6 +794,7 @@ public final class RRCHub {
         return mid
     }
 
+    /// Sends `text` to `room` as an action and returns the message identifier.
     @discardableResult
     public func sendAction(room: String, text: String) throws -> Data {
         let r = try normalizeRoom(room)
@@ -725,6 +819,7 @@ public final class RRCHub {
         return mid
     }
 
+    /// Sends a ping and returns its message identifier.
     @discardableResult
     public func sendPing(room: String? = nil) throws -> Data {
         let body = Data((0..<8).map { _ in UInt8.random(in: 0...255) })
@@ -741,6 +836,7 @@ public final class RRCHub {
         return body
     }
 
+    /// Sends a slash command to the hub.
     public func sendCommand(text: String, room: String? = nil) throws {
         guard text.hasPrefix("/") else { throw RRCHubError.commandMustStartWithSlash }
         let ownSrc = manager?.identity?.hash ?? Data()
@@ -1199,6 +1295,7 @@ public final class RRCHub {
         return e
     }
 
+    /// Rebuilds a message from a decoded history-log entry.
     public static func msgFromEntry(room: String, entry: [String: CBOR.Value]) -> RRCMessage? {
         guard let kindVal = entry[RRC.HistKey.kind], case .text(let kind) = kindVal,
               let textVal = entry[RRC.HistKey.text], case .text(let text) = textVal,
@@ -1214,6 +1311,7 @@ public final class RRCHub {
         return msg
     }
 
+    /// Returns whether the history of `room` is written to disk.
     public static func persistableRoom(_ room: String) -> Bool {
         !room.isEmpty && room != "*"
     }
@@ -1280,6 +1378,7 @@ public final class RRCHub {
 
     // MARK: - Notice parsing helpers (static, testable)
 
+    /// Parses a `/who` notice into its room and member entries.
     public static func parseWhoNotice(_ text: String) -> (room: String, entries: [(nick: String?, hex: String)])? {
         let prefix = "members in "
         guard text.hasPrefix(prefix) else { return nil }
@@ -1309,6 +1408,7 @@ public final class RRCHub {
         return (room, entries)
     }
 
+    /// Parses a `/list` notice into room names and topics.
     public static func parseRoomListNotice(_ text: String) -> [String: String?]? {
         let stripped = text.trimmingCharacters(in: .whitespacesAndNewlines)
         if stripped == "No public rooms registered" { return [:] }
@@ -1435,8 +1535,11 @@ public final class RRCManager {
 
     // MARK: Public state
 
+    /// Hubs this manager holds.
     public private(set) var hubs: [RRCHub] = []
+    /// Fires when hub or room state changes.
     public var onChangeCallback:  ((RRCHub?) -> Void)?
+    /// Fires for each message received on any hub.
     public var onMessageCallback: ((RRCHub, RRCMessage) -> Void)?
 
     /// Maximum size, in bytes, of a hub→client resource transfer this client will
@@ -1447,6 +1550,7 @@ public final class RRCManager {
     public var maxAcceptedResourceSize: Int = RRCHub.defaultMaxAcceptedResourceSize
 
     // Optional production app protocol — provides identity + storage
+    /// Owning application, supplying identity and storage.
     public weak var app: NomadNetworkAppProtocol?
 
     // Direct identity / storage for test-mode construction (override app)
@@ -1499,20 +1603,24 @@ public final class RRCManager {
 
     // MARK: Identity / storage / nick
 
+    /// Identity used for hub links.
     public var identity: Identity? {
         identityOverride ?? app?.identity
     }
 
+    /// Directory hub history and settings are stored under.
     public var storagePath: URL? {
         storageOverride ?? app?.storagePath
     }
 
+    /// Returns the application-wide display nickname.
     public func getNickname() -> String? {
         nicknameOverride ?? app?.peerDisplayName
     }
 
     // MARK: Hub management
 
+    /// Adds a hub, returning the existing one when it is already held.
     @discardableResult
     public func addHub(hash: Data, destName: String? = nil, name: String? = nil) -> RRCHub {
         let dn = destName ?? RRC.defaultDestName
@@ -1526,6 +1634,7 @@ public final class RRCManager {
         return hub
     }
 
+    /// Removes `hub` and disconnects it.
     public func removeHub(_ hub: RRCHub) {
         hub.manager = nil   // break retain cycle before release
         lock.withLock { hubs.removeAll { $0 === hub } }
@@ -1534,6 +1643,7 @@ public final class RRCManager {
         notifyChange(nil)
     }
 
+    /// Returns the held hub matching `hash` and `destName`.
     public func findHub(hash: Data, destName: String? = nil) -> RRCHub? {
         let dn = destName ?? RRC.defaultDestName
         return lock.withLock { hubs.first { $0.hubHash == hash && $0.destName == dn } }
@@ -1541,16 +1651,19 @@ public final class RRCManager {
 
     // MARK: Active room / unread
 
+    /// Whether any hub holds unread messages.
     public var hasUnread: Bool {
         lock.withLock { hubs.contains { !$0.unreadRooms.isEmpty } }
     }
 
+    /// Marks `room` on `hub` as the active view.
     public func setActive(hub: RRCHub, room: String?) {
         // activeHub/activeRoom are read by activeRoomFor from other threads.
         lock.withLock { activeHub = hub; activeRoom = room }
         if let r = room { hub.markRead(r) }   // outside the lock (takes the hub's lock)
     }
 
+    /// Returns the active room for `hub`.
     public func activeRoomFor(hub: RRCHub) -> String? {
         lock.withLock { activeHub === hub ? activeRoom : nil }
     }
@@ -1575,6 +1688,7 @@ public final class RRCManager {
 
     // MARK: Shutdown
 
+    /// Disconnects every hub and stops background work.
     public func shutdown() {
         // Break the RRCHub -> manager strong reference too (as removeHub does),
         // so tearing down a manager without removing hubs first doesn't leak.
@@ -1612,6 +1726,7 @@ public final class RRCManager {
         return dir.appendingPathComponent(filename)
     }
 
+    /// Writes hub settings to storage.
     public func save() {
         guard !loading else { return }
         guard let path = storePath() else { return }
@@ -1648,6 +1763,7 @@ public final class RRCManager {
         }
     }
 
+    /// Reads hub settings from storage.
     public func load() {
         guard !loaded, let path = storePath() else { return }
         guard FileManager.default.fileExists(atPath: path.path) else { loaded = true; return }
@@ -1691,6 +1807,7 @@ public final class RRCManager {
 
 // MARK: - NomadNetworkAppProtocol
 
+/// Host application services an `RRCManager` needs.
 public protocol NomadNetworkAppProtocol: AnyObject {
     var reticulum:    Reticulum { get }
     var identity:     Identity  { get }

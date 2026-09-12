@@ -31,6 +31,7 @@ public struct PageRequest: Sendable {
     /// Wall-clock time the request was created.
     public let timestamp: Date
 
+    /// Creates a request for `url` carrying `fields`.
     public init(url: NomadNetURL, fields: [String: String] = [:], timestamp: Date = Date()) {
         self.url = url
         self.fields = fields

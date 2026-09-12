@@ -48,15 +48,24 @@ public enum MicronAlignment: Equatable {
 ///
 /// Mirrors the Python `state` dict keys that influence text appearance.
 public struct MicronStyle: Equatable {
+    /// Whether the text is bold.
     public var bold: Bool
+    /// Whether the text is underlined.
     public var underline: Bool
+    /// Whether the text is italic.
     public var italic: Bool
+    /// Whether the text is struck through.
     public var strikethrough: Bool
+    /// Whether the text blinks.
     public var blink: Bool
+    /// Foreground colour.
     public var fgColor: MicronColor
+    /// Background colour.
     public var bgColor: MicronColor
+    /// Horizontal alignment.
     public var alignment: MicronAlignment
 
+    /// Style applied where the markup sets none.
     public static let `default` = MicronStyle(
         bold: false,
         underline: false,
@@ -68,6 +77,7 @@ public struct MicronStyle: Equatable {
         alignment: .left
     )
 
+    /// Creates a style from its attributes.
     public init(
         bold: Bool = false,
         underline: Bool = false,
@@ -105,7 +115,9 @@ public enum MicronFieldType: Equatable {
 
 /// An interactive form field embedded inside a line.
 public struct MicronField: Equatable {
+    /// Kind of input this field renders.
     public var fieldType: MicronFieldType
+    /// Name the field is submitted under.
     public var name: String
     /// Pre-filled / default text for a text field; selected value for checkbox/radio.
     public var value: String
@@ -115,8 +127,10 @@ public struct MicronField: Equatable {
     public var width: Int
     /// Whether a checkbox/radio is pre-checked.
     public var prechecked: Bool
+    /// Style the field is rendered with.
     public var style: MicronStyle
 
+    /// Creates a field from its attributes.
     public init(
         fieldType: MicronFieldType,
         name: String,
@@ -148,8 +162,10 @@ public struct MicronLink: Equatable {
     public var url: String
     /// Optional form field values to attach to the request.
     public var fields: [String]
+    /// Style the link is rendered with.
     public var style: MicronStyle
 
+    /// Creates a link from its label, target and fields.
     public init(label: String, url: String, fields: [String] = [], style: MicronStyle = .default) {
         self.label = label
         self.url = url
@@ -164,10 +180,14 @@ public struct MicronLink: Equatable {
 ///
 /// In the Python implementation these are loaded asynchronously and rendered in place.
 public struct MicronPartial: Equatable {
+    /// Target the partial is loaded from.
     public var url: String
+    /// Seconds between reloads, or `nil` to load once.
     public var refreshInterval: Double?
+    /// Names of the fields submitted with the request.
     public var fields: [String]
 
+    /// Creates a partial loaded from `url`.
     public init(url: String, refreshInterval: Double? = nil, fields: [String] = []) {
         self.url = url
         self.refreshInterval = refreshInterval

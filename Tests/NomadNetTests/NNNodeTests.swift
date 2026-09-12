@@ -15,15 +15,23 @@ import XCTest
 
 final class NNNodeConstantsTests: XCTestCase {
 
+    /// Pins the job interval to the value the reference uses.
+    ///
     /// Python: Node.JOB_INTERVAL = 5
     func testJobInterval() { XCTAssertEqual(NNNode.jobInterval, 5) }
 
+    /// Pins the start announce delay to the value the reference uses.
+    ///
     /// Python: Node.START_ANNOUNCE_DELAY = 6
     func testStartAnnounceDelay() { XCTAssertEqual(NNNode.startAnnounceDelay, 6) }
 
+    /// Pins the aspect filter to the destination aspects the reference uses.
+    ///
     /// Python: destination aspects "nomadnetwork", "node" → "nomadnetwork.node"
     func testAspectFilter() { XCTAssertEqual(NNNode.aspectFilter, "nomadnetwork.node") }
 
+    /// Pins the default page path to the value the reference uses.
+    ///
     /// Python: "/page/index.mu"
     func testDefaultPagePath() { XCTAssertEqual(NNNode.defaultPagePath, "/page/index.mu") }
 }
@@ -37,6 +45,8 @@ final class NNNodeCreationTests: XCTestCase {
         XCTAssertEqual(node.name, "Test Node")
     }
 
+    /// Announce data is the node name encoded as UTF-8.
+    ///
     /// Python: Node.announce() → self.app_data = self.name.encode("utf-8")
     func testAnnounceDataIsUTF8EncodedName() {
         let node = NNNode(name: "My Node")
@@ -110,6 +120,8 @@ final class NNNodeRequestDispatchTests: XCTestCase {
         XCTAssertEqual(captured, input)
     }
 
+    /// The default index is served when no index page is registered.
+    ///
     /// Python: If /page/index.mu is not registered, serve DEFAULT_INDEX
     func testDefaultIndexPageServedForUnregisteredIndex() {
         let node = NNNode(name: "Test")
@@ -119,6 +131,8 @@ final class NNNodeRequestDispatchTests: XCTestCase {
         XCTAssertTrue(text.contains("index.mu"), "Default index should mention 'index.mu'")
     }
 
+    /// A registered index page takes priority over the default.
+    ///
     /// Registered handler takes priority over the default index
     func testRegisteredIndexPageOverridesDefault() {
         let node = NNNode(name: "Test")
@@ -153,11 +167,15 @@ final class NNNodeRequestDispatchTests: XCTestCase {
 
 final class NNNodeDefaultContentTests: XCTestCase {
 
+    /// The default index body names the index file.
+    ///
     /// Python: DEFAULT_INDEX mentions "index.mu" in the body text
     func testDefaultIndexContentMentionsIndexMu() {
         XCTAssertTrue(NNNode.defaultIndexPage.contains("index.mu"))
     }
 
+    /// The default not-allowed body is non-empty.
+    ///
     /// Python: DEFAULT_NOTALLOWED mentions permission denial
     func testDefaultNotAllowedContentIsNonEmpty() {
         XCTAssertFalse(NNNode.defaultNotAllowedPage.isEmpty)

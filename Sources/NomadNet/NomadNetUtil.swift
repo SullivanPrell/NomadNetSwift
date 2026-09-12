@@ -225,7 +225,7 @@ public enum NomadNetUtil {
 
     // MARK: – unescape_micron
 
-    /// Convert escaped (¦-prefixed) Micron tags back to active (`-prefixed) tags.
+    /// Converts escaped Micron tags back to active ones.
     ///
     /// Corresponds to Python `unescape_micron(text)`.
     public static func unescapeMicron(_ text: String) -> String {

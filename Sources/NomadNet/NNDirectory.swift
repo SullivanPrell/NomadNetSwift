@@ -20,12 +20,14 @@ public struct DirectoryEntry {
 
     // MARK: – Trust level constants (Python: WARNING, UNTRUSTED, UNKNOWN, TRUSTED)
 
+    /// Trust a directory entry is held at.
     public enum TrustLevel: UInt8, Equatable, Comparable, Codable {
         case warning   = 0x00
         case untrusted = 0x01
         case unknown   = 0x02
         case trusted   = 0xFF
 
+        /// Orders trust levels from least to most trusted.
         public static func < (lhs: TrustLevel, rhs: TrustLevel) -> Bool {
             lhs.rawValue < rhs.rawValue
         }
@@ -33,6 +35,7 @@ public struct DirectoryEntry {
 
     // MARK: – Delivery mode constants (Python: DIRECT, PROPAGATED)
 
+    /// Route messages to the entry are sent over.
     public enum Delivery: UInt8, Equatable, Codable {
         case direct     = 0x01
         case propagated = 0x02
@@ -66,6 +69,7 @@ public struct DirectoryEntry {
 
     // MARK: – Init
 
+    /// Creates an entry for `sourceHash`.
     public init(
         sourceHash:        Data,
         displayName:       String?    = nil,
@@ -93,12 +97,16 @@ public struct DirectoryEntry {
 ///
 /// Corresponds to Python's `(timestamp, source_hash, app_data, kind)` tuples.
 public struct AnnounceRecord {
+    /// Time the announce was received.
     public let timestamp:   Date
+    /// Destination hash the announce came from.
     public let sourceHash:  Data
+    /// Application data the announce carried.
     public let appData:     Data?
     /// `"node"`, `"peer"`, or `"pn"`.
     public let kind:        String
 
+    /// Creates a record of a received announce.
     public init(timestamp: Date, sourceHash: Data, appData: Data?, kind: String) {
         self.timestamp = timestamp
         self.sourceHash = sourceHash
@@ -152,6 +160,7 @@ public class NNDirectory {
 
     // MARK: – Init
 
+    /// Creates an empty directory.
     public init() { }
 
     // MARK: – Announce management

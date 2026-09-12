@@ -28,6 +28,7 @@ public enum CBOR {
 
     // MARK: – Value type
 
+    /// Decoded CBOR value.
     public indirect enum Value: Equatable {
         case uint(UInt64)
         case int(Int64)     // negative integers
@@ -39,9 +40,11 @@ public enum CBOR {
         case null
 
         // Convenience integer initialiser from Int
+        /// Returns an unsigned-integer value holding `n`.
         public static func uint(_ n: Int) -> Value { .uint(UInt64(n)) }
 
         // Equatable conformance for map (ordered comparison)
+        /// Returns whether two values hold the same CBOR data.
         public static func == (lhs: Value, rhs: Value) -> Bool {
             switch (lhs, rhs) {
             case (.uint(let a),  .uint(let b)):  return a == b
@@ -62,6 +65,7 @@ public enum CBOR {
 
     // MARK: – Errors
 
+    /// Failures raised while decoding CBOR.
     public enum CBORError: Error {
         case unexpectedEndOfData
         case unsupportedType(UInt8)

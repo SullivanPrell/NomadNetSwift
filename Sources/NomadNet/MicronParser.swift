@@ -137,6 +137,7 @@ public struct MicronPage: Equatable {
     /// Page-wide default background from a `#!bg=` directive, if present and valid.
     public let backgroundColor: MicronColor?
 
+    /// Creates a page from its parsed nodes.
     public init(
         nodes: [MicronNode],
         anchors: [String: Int] = [:],
