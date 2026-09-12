@@ -1157,11 +1157,9 @@ public final class RRCHub {
           if nick == nil {
             mset.insert(hBytes)
           } else {
-            for ph in mset {
-              if ph.hex.hasPrefix(hexStr) {
-                nicks[ph] = nick
-                break
-              }
+            for ph in mset where ph.hex.hasPrefix(hexStr) {
+              nicks[ph] = nick
+              break
             }
           }
         }
@@ -1825,9 +1823,9 @@ public final class RRCManager {
   public func shutdown() {
     // Break the RRCHub -> manager strong reference too (as removeHub does),
     // so tearing down a manager without removing hubs first doesn't leak.
-    lock.withLock { hubs }.forEach {
-      $0.disconnect()
-      $0.manager = nil
+    for hub in lock.withLock({ hubs }) {
+      hub.disconnect()
+      hub.manager = nil
     }
   }
 
@@ -1976,6 +1974,8 @@ public protocol NomadNetworkAppProtocol: AnyObject {
   var rrcEphemeralNoticesTimeout: TimeInterval { get }
 }
 
+// The members below are default implementations of documented protocol requirements.
+// swift-format-ignore: AllPublicDeclarationsHaveDocumentation
 /// Default implementations for optional history-tuning properties.
 extension NomadNetworkAppProtocol {
   public var rrcHistoryPerRoomCap: Int? { nil }

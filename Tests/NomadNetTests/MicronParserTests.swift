@@ -826,7 +826,8 @@ final class MicronParserTests: XCTestCase {
   }
 
   func testStripMicronCodesAnchor() {
-    XCTAssertEqual(MicronParser.stripMicronCodes("`  :my-anchor text"), "`  :my-anchor text")  // only strips `:name form
+    // only strips `:name form
+    XCTAssertEqual(MicronParser.stripMicronCodes("`  :my-anchor text"), "`  :my-anchor text")
   }
 
   func testStripMicronCodesReset() {
