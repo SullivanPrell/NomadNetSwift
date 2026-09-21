@@ -1,11 +1,11 @@
 //===----------------------------------------------------------------------===//
 // Copyright (c) 2026 NomadNetSwift contributors.
 //
-// Licensed under the Reticulum License. See LICENSE in the repository root for
-// the full license text, and NOTICE for attribution of the upstream project
-// this file is derived from.
+// Licensed under the GNU General Public License, version 3 (GPL-3.0). See
+// LICENSE in the repository root for the full license text, and NOTICE for
+// attribution of the upstream project this file is derived from.
 //
-// SPDX-License-Identifier: LicenseRef-Reticulum
+// SPDX-License-Identifier: GPL-3.0-only
 //===----------------------------------------------------------------------===//
 
 /// AST node types produced by `MicronParser`.

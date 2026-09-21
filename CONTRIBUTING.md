@@ -63,4 +63,4 @@ git status --porcelain | awk '{print $NF}' | grep '\.swift$' \
 ## Submitting changes
 
 Branch from `main`, keep commits focused, ensure `swift test` is green, note any
-interop implications. Contributions are licensed under the [Reticulum License](LICENSE).
+interop implications. Contributions are licensed under the [GNU General Public License, version 3](LICENSE).

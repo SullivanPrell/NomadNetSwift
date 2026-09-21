@@ -17,7 +17,7 @@ EXCLUDE_DIRS = {".build", ".build-linux", ".git", ".swiftpm", "checkouts", "Pods
                 ".dd-ios", ".dd-mac", "Frameworks", "node_modules", "__pycache__"}
 EXCLUDE_SUFFIXES = (".pb.swift", ".grpc.swift")
 BANNER = "//===---"
-MARKER = "SPDX-License-Identifier: LicenseRef-Reticulum"
+MARKER = "SPDX-License-Identifier: GPL-3.0-only"
 
 
 def template(root):

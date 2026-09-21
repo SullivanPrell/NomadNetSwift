@@ -13,7 +13,7 @@ A Swift port of [NomadNet](https://github.com/markqvist/NomadNet) (Nomad Network
 [![Swift](https://img.shields.io/badge/Swift-5.9-orange)](https://swift.org)
 [![CI](https://github.com/SullivanPrell/NomadNetSwift/actions/workflows/ci.yml/badge.svg)](https://github.com/SullivanPrell/NomadNetSwift/actions/workflows/ci.yml)
 [![Coverage](https://img.shields.io/badge/coverage-83%25-brightgreen)](#testing)
-[![License](https://img.shields.io/badge/license-Reticulum-lightgrey)](LICENSE)
+[![License](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE)
 
 Nomad Network is a resilient, server-optional "web" that runs entirely over
 Reticulum: nodes host pages written in **Micron** markup and serve files; clients
@@ -103,6 +103,8 @@ RETICULUM_LOCAL_DEPS=1 swift test     # develop against a sibling ReticulumSwift
 
 ## License
 
-Released under the **Reticulum License** (no harm-capable systems; no AI/ML
-training datasets). See [LICENSE](LICENSE). NomadNetSwift is a derivative work of
-[NomadNet](https://github.com/markqvist/NomadNet) by Mark Qvist; see [NOTICE](NOTICE).
+NomadNet itself is **GPL-3.0**, not the Reticulum License used by RNS and LXMF.
+As a derivative work, NomadNetSwift is released under the same license: the
+**GNU General Public License, version 3**. See [LICENSE](LICENSE). NomadNetSwift
+is a derivative work of [NomadNet](https://github.com/markqvist/NomadNet) by
+Mark Qvist; see [NOTICE](NOTICE).
