@@ -33,6 +33,11 @@ All notable changes to NomadNetSwift are documented here. This project follows
 
 - `MicronParser.parse(_:)`—use `parsePage(_:)`; the nodes-only result
   discards page colors and anchors.
+- `RRCHub._onPacket(_:)`, `RRCHub._msgFromEntry(room:entry:)` and
+  `RRCHub._persistableRoom(_:)`—use `onPacket(_:)`, `msgFromEntry(room:entry:)`
+  and `persistableRoom(_:)`. The 1.2.0 names remain as forwarding aliases marked
+  `@available(*, deprecated, renamed:)` until 2.0.0.
+  `swift package diagnose-api-breaking-changes 1.2.0` reports no breaking changes.
 
 ## [1.0.0]—initial public release
 

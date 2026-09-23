@@ -1461,3 +1461,34 @@ final class RRCHubHistoryBehaviorTests: XCTestCase {
     XCTAssertEqual(RRCHub.sysNoticeTimeout, 600.0)
   }
 }
+
+// MARK: - Deprecated 1.2.0 spellings
+
+/// Pins the 1.2.0 method names that the style-guide renames replaced.
+///
+/// Each deprecated alias must forward to the renamed method, so code written against 1.2.0
+/// compiles unchanged and behaves the same.
+@available(*, deprecated, message: "Exercises deprecated aliases.")
+final class RRCHubDeprecatedNameAliasTests: XCTestCase {
+  func testOnPacketAliasDeliversTheMessage() {
+    let h = makeHub(rooms: ["lobby"])
+    h._onPacket(makePkt(type: RRC.MessageType.msg, room: "lobby", body: .text("hi")))
+    XCTAssertEqual(h.getMessages(room: "lobby").map(\.text), ["hi"])
+  }
+
+  func testMsgFromEntryAlias() {
+    let msg = RRCMessage(
+      kind: "msg", room: "lobby", src: makeSrc(), nick: "alice", text: "hello", ts: 1)
+    let entry = makeHub().entryFor(msg)
+    XCTAssertEqual(
+      RRCHub._msgFromEntry(room: "lobby", entry: entry)?.text,
+      RRCHub.msgFromEntry(room: "lobby", entry: entry)?.text)
+    XCTAssertNil(RRCHub._msgFromEntry(room: "lobby", entry: [:]))
+  }
+
+  func testPersistableRoomAlias() {
+    for room in ["lobby", "", "*"] {
+      XCTAssertEqual(RRCHub._persistableRoom(room), RRCHub.persistableRoom(room), room)
+    }
+  }
+}
