@@ -66,15 +66,16 @@ form fields for request submission.
 
 ## RRC and the directory
 
-- **RRC (Remote Resource Calls)** lets a node expose callable services that
-  clients invoke over Reticulum.
+- **RRC (Reticulum Relay Chat)** is a real-time text chat protocol. The client
+  joins rooms on RRC hubs, which Reticulum destination hashes address.
 - **`NNDirectory`** tracks known nodes (from announces) so users can browse a list
   of reachable destinations rather than memorizing hashes.
 
 ## Interop
 
-NomadNetSwift speaks the same protocol as Python NomadNet, so a Swift browser can
-load pages from a Python node (and the reverse). For testing against Python, see
+NomadNetSwift is a translation of Python NomadNet and follows its protocol, so a
+Swift browser can load pages from a Python node (and the reverse). Python NomadNet is
+the authority. Where the two disagree, the Swift port has the bug. For testing against Python, see
 ReticulumSwift's
 [INTEROP guide](https://github.com/SullivanPrell/ReticulumSwift/blob/main/docs/INTEROP.md).
 The Micron reference is documented in the upstream
