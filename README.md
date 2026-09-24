@@ -1,13 +1,14 @@
 # NomadNetSwift
 
-> **Reticulum and Nomad Network are the work of [Mark Qvist](https://github.com/markqvist).** This
-> is an independent, community Swift implementation of NomadNet—**not an official Reticulum
-> project**. The canonical project and reference (Python) implementation live at
+> **Reticulum and Nomad Network are the work of [Mark Qvist](https://github.com/markqvist).** NomadNetSwift
+> is a community translation of his Python NomadNet implementation into Swift. It's
+> **not an official Reticulum project** and **not a clean-room implementation**. The
+> canonical project and reference implementation live at
 > **[github.com/markqvist/NomadNet](https://github.com/markqvist/NomadNet)**, part of the broader
-> **[Reticulum](https://github.com/markqvist/Reticulum)** network created by Mark; please look
-> there first to understand the protocol itself.
+> **[Reticulum](https://github.com/markqvist/Reticulum)** network created by Mark Qvist;
+> start there to understand the protocol itself. See [Provenance](#provenance).
 
-A Swift port of [NomadNet](https://github.com/markqvist/NomadNet) (Nomad Network)—decentralized, encrypted pages and services carried over Reticulum.
+A Swift port of [NomadNet](https://github.com/markqvist/NomadNet) (Nomad Network): pages and services carried over Reticulum, with end-to-end encryption and no central server.
 
 [![Platforms](https://img.shields.io/badge/platforms-iOS%2016%2B%20%7C%20macOS%2013%2B-blue)](#requirements)
 [![Swift](https://img.shields.io/badge/Swift-5.9-orange)](https://swift.org)
@@ -21,18 +22,18 @@ browse them by cryptographic address. It works over any Reticulum interface—in
 LoRa and packet radio—with no DNS, no central servers, and end-to-end
 encryption throughout.
 
-**NomadNetSwift** brings that to Swift: a Micron parser, a page/file-serving
-node, a browser, RRC (Remote Resource Calls), and a node directory—all
-wire-compatible with the Python reference, so a Swift client can browse a Python
-node and vice versa.
+**NomadNetSwift** translates that into Swift: a Micron parser, a node that serves
+pages and files, a browser, an RRC (Reticulum Relay Chat) client, and a node directory. In the
+interoperability suite, a Swift client browses a Python node and the reverse.
 
 This is part of the [ReticulumSwift stack](https://github.com/SullivanPrell/ReticulumSwift#the-reticulumswift-stack).
 
 ## Status
 
-NomadNetSwift implements NomadNet—Micron markup, the browser, the node
-(`NNNode`), RRC, and the node directory (`NNDirectory`)—and is wire-compatible
-with the Python reference. Covered by 470 unit tests (~83% line coverage).
+NomadNetSwift is **experimental**. It covers Micron markup, the browser, the node
+(`NNNode`), the RRC client, and the node directory (`NNDirectory`). The Python
+implementation is the authority on how NomadNet behaves. Where this port differs from
+it, the port is wrong. Unit tests cover about 83% of lines.
 
 ## Requirements
 
@@ -101,10 +102,22 @@ swift test
 RETICULUM_LOCAL_DEPS=1 swift test     # develop against a sibling ReticulumSwift checkout
 ```
 
+## Provenance
+
+NomadNetSwift is a translation of the Python NomadNet implementation, not an independent or
+clean-room implementation of the protocol. Its authors wrote it from the Python source,
+and the code follows that source closely: types, functions, constants, and control flow
+mirror their Python counterparts, and doc comments in 10 of 11 of the files in `Sources/`
+cite the Python file, function, or line that each part translates. That makes it a
+derivative work of NomadNet. See [NOTICE](NOTICE).
+
+Its authors wrote most of the code with machine assistance (Claude Code). Commits made
+that way carry a `Co-Authored-By: Claude` trailer.
+
 ## License
 
 NomadNet itself is **GPL-3.0**, not the Reticulum License used by RNS and LXMF.
 As a derivative work, NomadNetSwift is released under the same license: the
 **GNU General Public License, version 3**. See [LICENSE](LICENSE). NomadNetSwift
 is a derivative work of [NomadNet](https://github.com/markqvist/NomadNet) by
-Mark Qvist; see [NOTICE](NOTICE).
+Mark Qvist, as [Provenance](#provenance) describes. See [NOTICE](NOTICE).

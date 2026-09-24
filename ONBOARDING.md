@@ -1,7 +1,7 @@
 # Onboarding Guide: NomadNetSwift
 
 ## Overview
-NomadNetSwift is a pure-Swift implementation of the **Nomad Network** protocol, designed to run over **Reticulum**. It enables building and browsing decentralized, encrypted pages and services over the mesh. This project is a port of the original Python NomadNet implementation, maintaining protocol compatibility while providing a native Swift API for iOS and macOS.
+NomadNetSwift is a Swift translation of the Python **Nomad Network** implementation, running over **Reticulum**. It builds and browses pages and services over the mesh, with end-to-end encryption and no central server. It isn't a clean-room implementation: the code follows the Python source closely and cites it throughout, and the Python implementation is the authority on protocol behavior.
 
 ## Tech stack
 | Layer | Technology | Version |
@@ -23,7 +23,7 @@ Handles requesting content from nodes, managing page history, and resolving URLs
 ### Core components
 - **MicronParser**: a complex state machine that converts Micron markup text into an AST of `MicronNode` and `MicronSpan` elements.
 - **NomadNetURL**: parses the `<destination_hash>:<path>` format used in Nomad Network.
-- **RRC (Remote Resource Calls)**: implements the protocol for calling remote functions/services.
+- **RRC (Reticulum Relay Chat)**: the client for real-time chat rooms hosted on RRC hubs.
 
 ## Key entry points
 - **Sources/NomadNet/NNNode.swift**: start here to understand how to host a NomadNet site.
@@ -32,10 +32,10 @@ Handles requesting content from nodes, managing page history, and resolving URLs
 
 ## Directory map
 - `Sources/NomadNet/` → Core protocol and parsing logic.
-- `Tests/NomadNetTests/` → Exhaustive unit tests for all components.
+- `Tests/NomadNetTests/` → Unit tests for all components.
 
 ## Conventions
-- **Python parity**: comments often reference specific Python files (for example, `Node.py` or `MicronParser.py`) to ensure logic parity.
+- **Python parity**: doc comments name the Python file and function each part translates (for example, `Node.py` or `MicronParser.py`). New code does the same.
 - **Naming**: standard Swift PascalCase for types and camelCase for members.
 - **Testing**: every major component has a corresponding `[Component]Tests.swift` file. Use `swift test` to run the suite.
 
