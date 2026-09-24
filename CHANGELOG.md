@@ -5,6 +5,28 @@ All notable changes to NomadNetSwift are documented here. This project follows
 
 ## [Unreleased]
 
+## [1.3.0]—relicensed to match upstream NomadNet
+
+### Changed
+
+- Licensed under GPL-3.0-only, the license of upstream
+  [NomadNet](https://github.com/markqvist/NomadNet), which this package translates.
+  `LICENSE` carries the unmodified GPLv3 text, and every source file's header carries
+  `SPDX-License-Identifier: GPL-3.0-only`. Releases through 1.2.0 carried the Reticulum
+  License.
+- README and CONTRIBUTING state that the package is a translation of the Python
+  reference, not an independent implementation.
+
+### Deprecated
+
+- `RRCHub._onPacket(_:)`, `RRCHub._msgFromEntry(room:entry:)` and
+  `RRCHub._persistableRoom(_:)`—use `onPacket(_:)`, `msgFromEntry(room:entry:)`
+  and `persistableRoom(_:)`. The 1.2.0 names remain as forwarding aliases marked
+  `@available(*, deprecated, renamed:)` until 2.0.0.
+  `swift package diagnose-api-breaking-changes 1.2.0` reports no breaking changes.
+
+## [1.2.0]
+
 ### Added
 
 - `MicronParser.parsePage(_:)` returning `MicronPage`—the page-level parse
@@ -33,11 +55,6 @@ All notable changes to NomadNetSwift are documented here. This project follows
 
 - `MicronParser.parse(_:)`—use `parsePage(_:)`; the nodes-only result
   discards page colors and anchors.
-- `RRCHub._onPacket(_:)`, `RRCHub._msgFromEntry(room:entry:)` and
-  `RRCHub._persistableRoom(_:)`—use `onPacket(_:)`, `msgFromEntry(room:entry:)`
-  and `persistableRoom(_:)`. The 1.2.0 names remain as forwarding aliases marked
-  `@available(*, deprecated, renamed:)` until 2.0.0.
-  `swift package diagnose-api-breaking-changes 1.2.0` reports no breaking changes.
 
 ## [1.0.0]—initial public release
 
