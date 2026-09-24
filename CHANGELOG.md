@@ -5,7 +5,7 @@ All notable changes to NomadNetSwift are documented here. This project follows
 
 ## [Unreleased]
 
-## [1.3.0]—licensed under GPL-3.0
+## [1.3.0]—relicensed to match upstream NomadNet
 
 ### Changed
 
