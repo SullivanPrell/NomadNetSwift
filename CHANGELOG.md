@@ -13,8 +13,8 @@ the RNS 1.5.5 that NomadNet 1.4.4 requires.
 NomadNet 1.4.4 keeps a divider's fill character only when urwid renders it in one terminal
 cell (`MicronParser.py:603-613`). A wide character such as `漢` or an emoji, a combining mark,
 or a zero-width character falls back to `─`. `MicronCellWidth` holds the code points whose
-width isn't 1, which `scripts/generate-cell-width.py` writes from wcwidth 0.8.2, as urwid 4.0.8
-measures them.
+width isn't 1. `scripts/generate-cell-width.py` writes it from wcwidth 0.9.1 (Unicode 18.0),
+which urwid 4.2.4 measures with.
 
 The divider reads its line by code point, as Python does, so `-` followed by a combining mark
 is a divider rather than a line of text.

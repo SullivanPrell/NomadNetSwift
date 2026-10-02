@@ -5,8 +5,8 @@ NomadNet keeps a Micron divider's fill character only when urwid renders it in o
 terminal cell (MicronParser.py:603-613). urwid measures a character with wcwidth, so
 the Swift table lists every code point from U+0020 up whose wcwidth isn't 1.
 
-Run it with the Python that reticulum-interop measures parity against, which has
-urwid and wcwidth installed:
+Run it with reticulum-interop's venv after `make deps`, which installs the urwid and
+wcwidth that NomadNet resolves to, and regenerate when either changes:
 
     ../../reticulum-interop/.venv/bin/python scripts/generate-cell-width.py
 """

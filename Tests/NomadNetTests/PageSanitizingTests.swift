@@ -17,7 +17,7 @@ import Testing
 ///
 /// The browser renders `markup_to_attrmaps(strip_modifiers(markup))` (`Browser.py:1846`), and
 /// `markup_to_attrmaps` strips `STRIP_CONTROL_RE` from what it receives (`MicronParser.py:107`).
-/// Each expected value was read from NomadNet 1.4.4.
+/// Each expected value was read from NomadNet 1.4.4 on urwid 4.2.4.
 @Suite("Page sanitizing")
 struct PageSanitizingTests {
 

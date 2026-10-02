@@ -17,7 +17,8 @@ import Testing
 ///
 /// NomadNet 1.4.4 keeps a divider's fill character only when urwid renders it in one terminal
 /// cell, and otherwise draws `─` (`MicronParser.py:603-613`). Each expected fill was read from
-/// NomadNet 1.4.4's parser on urwid 4.0.8 and wcwidth 0.8.2.
+/// NomadNet 1.4.4's parser on urwid 4.2.4 and wcwidth 0.9.1, which `make deps` in
+/// reticulum-interop installs.
 @Suite("Micron divider fill character")
 struct MicronDividerTests {
 
@@ -33,6 +34,7 @@ struct MicronDividerTests {
     ("-\u{E9}", "\u{E9}"),
     ("-e\u{301}", "\u{2500}"),
     ("-\u{301}", "\u{2500}"),
+    ("-\u{5C8}", "\u{2500}"),
     ("-\u{200B}", "\u{2500}"),
     ("-\u{200B}=", "="),
     ("-\u{2028}", "\u{2500}"),
@@ -94,7 +96,7 @@ struct MicronDividerTests {
   func cellWidthMatchesWcwidth() {
     let single: [UInt32] = [0x20, 0x41, 0xA0, 0xAD, 0xE9, 0x2022, 0x2500, 0x2605]
     let other: [UInt32] = [
-      0x01, 0x1F, 0x7F, 0x85, 0x9F, 0x301, 0x1100, 0x1160, 0x200B, 0x2028, 0x3000, 0x6F22,
+      0x01, 0x1F, 0x7F, 0x85, 0x9F, 0x301, 0x5C8, 0x1100, 0x1160, 0x200B, 0x2028, 0x3000, 0x6F22,
       0xFE0F, 0xFF01, 0x1F1FA, 0x1F600, 0x20000, 0xE0001,
     ]
     for value in single {
