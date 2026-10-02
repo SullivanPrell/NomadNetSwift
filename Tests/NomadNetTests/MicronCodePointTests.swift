@@ -179,6 +179,12 @@ struct MicronCodePointTests {
       [],
       anchors: [:]),
     Vector(
+      "`{p`5`a|\u{301}b}",
+      [
+        .partial(MicronPartial(url: "p", refreshInterval: 5.0, fields: ["a", "\u{301}b"]))
+      ],
+      anchors: [:]),
+    Vector(
       ">`<\u{301}f`v>",
       [
         .line(
@@ -225,6 +231,36 @@ struct MicronCodePointTests {
       "`c\u{301}x",
       [
         .line([.text("\u{301}x", style: .init())], depth: 0, alignment: .center)
+      ],
+      anchors: [:]),
+    Vector(
+      "`l\u{301}x",
+      [
+        .line([.text("\u{301}x", style: .init())], depth: 0, alignment: .left)
+      ],
+      anchors: [:]),
+    Vector(
+      "`r\u{301}x",
+      [
+        .line([.text("\u{301}x", style: .init())], depth: 0, alignment: .right)
+      ],
+      anchors: [:]),
+    Vector(
+      "`a\u{301}x",
+      [
+        .line([.text("\u{301}x", style: .init())], depth: 0, alignment: .left)
+      ],
+      anchors: [:]),
+    Vector(
+      "`f\u{301}x",
+      [
+        .line([.text("\u{301}x", style: .init())], depth: 0, alignment: .left)
+      ],
+      anchors: [:]),
+    Vector(
+      "`b\u{301}x",
+      [
+        .line([.text("\u{301}x", style: .init())], depth: 0, alignment: .left)
       ],
       anchors: [:]),
     Vector(
@@ -330,6 +366,14 @@ struct MicronCodePointTests {
       ],
       anchors: [:]),
     Vector(
+      "`[l`u`a|\u{301}b]",
+      [
+        .line(
+          [.link(MicronLink(label: "l", url: "u", fields: ["a", "\u{301}b"], style: .init()))],
+          depth: 0, alignment: .left)
+      ],
+      anchors: [:]),
+    Vector(
       "`<\u{301}n`v>",
       [
         .line(
@@ -374,6 +418,42 @@ struct MicronCodePointTests {
               MicronField(
                 fieldType: .checkbox, name: "\u{301}n", value: "1", label: "l", width: 24,
                 prechecked: false, style: .init()))
+          ], depth: 0, alignment: .left)
+      ],
+      anchors: [:]),
+    Vector(
+      "`<!\u{301}|n`v>",
+      [
+        .line(
+          [
+            .field(
+              MicronField(
+                fieldType: .masked, name: "n", value: "v", label: "", width: 24, prechecked: false,
+                style: .init()))
+          ], depth: 0, alignment: .left)
+      ],
+      anchors: [:]),
+    Vector(
+      "`<?\u{301}|n|1`l>",
+      [
+        .line(
+          [
+            .field(
+              MicronField(
+                fieldType: .checkbox, name: "n", value: "1", label: "l", width: 24,
+                prechecked: false, style: .init()))
+          ], depth: 0, alignment: .left)
+      ],
+      anchors: [:]),
+    Vector(
+      "`<^\u{301}|n|1`l>",
+      [
+        .line(
+          [
+            .field(
+              MicronField(
+                fieldType: .radio, name: "n", value: "1", label: "l", width: 24, prechecked: false,
+                style: .init()))
           ], depth: 0, alignment: .left)
       ],
       anchors: [:]),
