@@ -30,15 +30,15 @@ This is part of the [ReticulumSwift stack](https://github.com/SullivanPrell/Reti
 
 ## Status
 
-NomadNetSwift is **experimental**. It covers Micron markup, the browser, the node
-(`NNNode`), the RRC client, and the node directory (`NNDirectory`). The Python
-implementation is the authority on how NomadNet behaves. Where this port differs from
-it, the port is wrong. Unit tests cover about 83% of lines.
+NomadNetSwift is **experimental**. It tracks Python NomadNet 1.4.4 and covers Micron
+markup, the browser, the node (`NNNode`), the RRC client, and the node directory
+(`NNDirectory`). The Python implementation is the authority on how NomadNet behaves.
+Where this port differs from it, the port is wrong. Unit tests cover about 83% of lines.
 
 ## Requirements
 
 - Swift 5.9+, iOS 16+ / macOS 13+
-- Depends on [ReticulumSwift](https://github.com/SullivanPrell/ReticulumSwift) 1.0.0+
+- Depends on [ReticulumSwift](https://github.com/SullivanPrell/ReticulumSwift) 1.23.0+
 
 ## Installation
 

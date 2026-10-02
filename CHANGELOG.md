@@ -5,6 +5,47 @@ All notable changes to NomadNetSwift are documented here. This project follows
 
 ## [Unreleased]
 
+NomadNetSwift tracks Python NomadNet 1.4.4, and requires ReticulumSwift 1.23.0, which ports
+the RNS 1.5.5 that NomadNet 1.4.4 requires.
+
+### A divider draws ─ when its fill character doesn't fit one cell
+
+NomadNet 1.4.4 keeps a divider's fill character only when urwid renders it in one terminal
+cell (`MicronParser.py:603-613`). A wide character such as `漢` or an emoji, a combining mark,
+or a zero-width character falls back to `─`. `MicronCellWidth` holds the code points whose
+width isn't 1, which `scripts/generate-cell-width.py` writes from wcwidth 0.8.2, as urwid 4.0.8
+measures them.
+
+The divider reads its line by code point, as Python does, so `-` followed by a combining mark
+is a divider rather than a line of text.
+
+### A page loses the characters Python strips before rendering
+
+These close gaps against NomadNet 1.4.3 that change what a divider, and every other line,
+contains:
+
+- `parsePage` removes the control, zero-width, and bidi characters that `STRIP_CONTROL_RE`
+  matches before it splits the page into lines (`MicronParser.py:107`).
+- `NomadNetBrowser.handleResponse` parses the page after `stripModifiers`, and reads the page
+  colors from the markup as sent (`Browser.py:1824-1846`).
+- `stripModifiers` removes the `STRIP_CONTROL_RE` characters and trims leading and trailing
+  whitespace as `str.strip()` does, newlines included (`util.py:92-126`). It trimmed spaces
+  and tabs only, so a page kept its trailing empty lines and a name kept its control
+  characters.
+
+### Not ported
+
+- The propagation node announce log names the node's implementation and version
+  (`Directory.py:24-27`). NomadNetSwift has no propagation node announce handler, and nothing
+  calls `NNDirectory.pnAnnounceReceived`.
+- `_termlib` loads without `termios` on platforms that lack it. NomadNetSwift doesn't render
+  images in a terminal.
+
+### CI
+
+The tests use Swift Testing, which needs Xcode 16 or later. Build & test runs on macos-15 with
+Xcode 26.3 pinned, and a Build (Swift 5.10) job builds the library on macos-14.
+
 ## [1.3.0]—relicensed to match upstream NomadNet
 
 ### Changed

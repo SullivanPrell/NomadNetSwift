@@ -25,6 +25,9 @@ cd NomadNetSwift
 swift test
 ```
 
+The library builds with Swift 5.9 and later. The tests need Xcode 16 or later, which ships
+Swift Testing.
+
 By default the package resolves ReticulumSwift from its published release. To
 develop both at once, check out ReticulumSwift as a sibling directory and set:
 
