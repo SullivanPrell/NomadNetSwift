@@ -175,8 +175,10 @@ struct MicronCodePointTests {
       ],
       anchors: [:]),
     Vector(
-      "`{p`\u{301}5}",
-      [],
+      "`{p`5`\u{301}a}",
+      [
+        .partial(MicronPartial(url: "p", refreshInterval: 5.0, fields: ["\u{301}a"]))
+      ],
       anchors: [:]),
     Vector(
       "`{p`5`a|\u{301}b}",
