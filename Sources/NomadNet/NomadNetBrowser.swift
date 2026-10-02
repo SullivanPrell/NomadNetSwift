@@ -97,7 +97,7 @@ open class NomadNetBrowser: @unchecked Sendable {
 
   /// The most recently loaded page—the Swift equivalent of the Python
   /// browser retaining `page_background_color` / `page_foreground_color`
-  /// (Browser.py:1247-1267) and `attr_maps.anchors` (Browser.py:325-326)
+  /// (Browser.py:1824-1844) and `attr_maps.anchors` (Browser.py:325-326)
   /// after a load. `nil` until a page has been handled.
   public private(set) var currentPage: MicronPage?
 
