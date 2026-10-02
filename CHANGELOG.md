@@ -3,7 +3,7 @@
 All notable changes to NomadNetSwift are documented here. This project follows
 [Semantic Versioning](https://semver.org).
 
-## [Unreleased]
+## [1.4.0]—NomadNet 1.4.4 parity
 
 NomadNetSwift tracks Python NomadNet 1.4.4, and requires ReticulumSwift 1.23.0, which ports
 the RNS 1.5.5 that NomadNet 1.4.4 requires.
