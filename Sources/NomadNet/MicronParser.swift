@@ -47,6 +47,15 @@
 
 import Foundation
 
+extension String {
+  /// Creates a string from `codePoints` without normalizing them.
+  fileprivate init<S: Sequence>(codePoints: S) where S.Element == Unicode.Scalar {
+    var view = String.UnicodeScalarView()
+    view.append(contentsOf: codePoints)
+    self.init(view)
+  }
+}
+
 // MARK: - Parser state
 
 /// Mutable parsing state threaded through the document parse.
@@ -115,7 +124,7 @@ private struct ParseState {
 /// The complete result of parsing a Micron page.
 ///
 /// Carries everything the Python browser derives from a page besides the
-/// widget tree: the `#!fg=` / `#!bg=` page colors (Browser.py:1247-1267) and
+/// widget tree: the `#!fg=` / `#!bg=` page colors (Browser.py:1824-1844) and
 /// the anchors map bound by `markup_to_attrmaps` (MicronParser.py:126-131,
 /// exposed at :142). Returned as one value so no consumer can drop them.
 public struct MicronPage: Equatable {
@@ -195,12 +204,13 @@ public struct MicronParser {
     var nodes: [MicronNode] = []
     var anchors: [String: Int] = [:]
 
-    // markup_to_attrmaps strips control and zero-width characters first (MicronParser.py:107).
-    let lines = NomadNetUtil.stripControl(markup).split(
+    // markup_to_attrmaps strips control and zero-width characters, then splits on the "\n"
+    // code point (MicronParser.py:107, :117), so a "\r\n" ending leaves "\r" on the line.
+    let lines = NomadNetUtil.stripControl(markup).unicodeScalars.split(
       separator: "\n", omittingEmptySubsequences: false)
 
     for rawLine in lines {
-      let line = String(rawLine)
+      let line = Array(rawLine)
       let produced: [MicronNode]
       if line.isEmpty {
         // Python renders empty lines as urwid.Text("")—a produced
@@ -268,20 +278,20 @@ public struct MicronParser {
 
   /// Extract a page-level color directive value (`#!fg=` / `#!bg=`).
   ///
-  /// Mirrors Browser.py:1247-1267: the first occurrence anywhere in the
-  /// document is used, the value runs to the next newline, and only exact
-  /// lengths of 3 or 6 are accepted. A directive on the final line without
-  /// a trailing newline is ignored (Python's find("\n") returns -1, which
-  /// fails both length checks).
+  /// Mirrors Browser.py:1824-1844: Python takes the first occurrence anywhere
+  /// in the document, reads the value up to the next `"\n"` code point, and
+  /// accepts only a value of exactly 3 or 6 code points. Python ignores a
+  /// directive on the final line without a trailing newline, because
+  /// find("\n") returns -1, which fails both length checks.
   static func pageColorDirective(_ directive: String, in markup: String) -> MicronColor? {
-    guard let found = markup.range(of: directive) else { return nil }
-    guard let newline = markup.range(of: "\n", range: found.upperBound..<markup.endIndex) else {
-      return nil
-    }
-    let value = String(markup[found.upperBound..<newline.lowerBound])
+    let scalars = Array(markup.unicodeScalars)
+    guard let found = firstIndex(of: Array(directive.unicodeScalars), in: scalars),
+      let newline = find("\n", in: scalars, from: found + directive.unicodeScalars.count)
+    else { return nil }
+    let value = scalars[(found + directive.unicodeScalars.count)..<newline]
     switch value.count {
-    case 3: return parseColor3(value)
-    case 6: return parseColor6(value)
+    case 3: return parseColor3(String(codePoints: value))
+    case 6: return parseColor6(String(codePoints: value))
     default: return nil
     }
   }
@@ -290,23 +300,23 @@ public struct MicronParser {
 
   /// Parse a single non-empty line against the current mutable state.
   ///
+  /// The line is a sequence of code points, as Python indexes a `str`, so a combining mark is
+  /// a character of its own rather than part of the one before it.
+  ///
   /// Returns zero or more nodes to append to the output.
-  private static func parseLine(_ line: String, state: inout ParseState) -> [MicronNode] {
-    var chars = Array(line)
-    guard !chars.isEmpty else { return [] }
-
-    let first = chars[0]
+  private static func parseLine(_ line: [Unicode.Scalar], state: inout ParseState) -> [MicronNode] {
+    guard let first = line.first else { return [] }
 
     // ── Literal mode ────────────────────────────────────────────────────
     // The literal toggle `` `= `` works in *and* out of literal mode.
-    if line == "`=" {
+    if line.elementsEqual("`=".unicodeScalars) {
       state.literal.toggle()
       return []
     }
 
     if state.literal {
       // In literal mode only render text as-is (allow escaping the toggle)
-      let text = (line == "\\`=") ? "`=" : line
+      let text = line.elementsEqual("\\`=".unicodeScalars) ? "`=" : String(codePoints: line)
       let span = MicronSpan.text(text, style: state.currentStyle())
       return [.line([span], depth: state.depth, alignment: state.alignment)]
     }
@@ -318,41 +328,38 @@ public struct MicronParser {
     // A leading `\` strips the backslash and passes the rest through with
     // NO further inline parsing (same as pre_escape=True in Python).
     var preEscape = false
-    var workLine = line
+    var workLine = line[...]
     if first == "\\" {
-      workLine = String(line.dropFirst())
+      workLine = line.dropFirst()
       preEscape = true
-    } else {
+    } else if first == ">" && firstIndex(of: Array("`<".unicodeScalars), in: line) != nil {
       // Heading lines containing `< (field opening) lose their heading status
-      if first == ">" && line.contains("`<") {
-        workLine = line.drop(while: { $0 == ">" }).description
-      }
+      workLine = line.drop(while: { $0 == ">" })
     }
 
-    let workChars = Array(workLine)
-    guard !workChars.isEmpty else { return [] }
-    let workFirst = workChars[0]
+    let work = Array(workLine)
+    guard let workFirst = work.first else { return [] }
 
     // ── Table toggle `` `t `` ────────────────────────────────────────────
-    if workLine.hasPrefix("`t") {
-      let afterT = workChars.dropFirst(2)
+    if work.starts(with: "`t".unicodeScalars) {
       var align: MicronAlignment? = nil
       var maxWidth: Int? = nil
-      var rest = afterT[...]
+      var rest = work.dropFirst(2)
 
-      if let first = rest.first {
-        if first == "l" {
-          align = .left
-          rest = rest.dropFirst()
-        } else if first == "c" {
-          align = .center
-          rest = rest.dropFirst()
-        } else if first == "r" {
-          align = .right
-          rest = rest.dropFirst()
-        }
+      switch rest.first {
+      case "l":
+        align = .left
+        rest = rest.dropFirst()
+      case "c":
+        align = .center
+        rest = rest.dropFirst()
+      case "r":
+        align = .right
+        rest = rest.dropFirst()
+      default:
+        break
       }
-      if !rest.isEmpty, let w = Int(String(rest)) {
+      if !rest.isEmpty, let w = Int(String(codePoints: rest)) {
         maxWidth = w
       }
 
@@ -379,13 +386,13 @@ public struct MicronParser {
 
     // ── Table buffering ──────────────────────────────────────────────────
     if state.tableMode {
-      state.tableBuffer.append(workLine)
+      state.tableBuffer.append(String(codePoints: work))
       return []
     }
 
     // ── Partial `` `{ `` ────────────────────────────────────────────────
-    if workLine.hasPrefix("`{") {
-      if let partial = parsePartial(String(workLine.dropFirst(2))) {
+    if work.starts(with: "`{".unicodeScalars) {
+      if let partial = parsePartial(Array(work.dropFirst(2))) {
         return [.partial(partial)]
       }
       return []
@@ -394,42 +401,32 @@ public struct MicronParser {
     // ── Section reset `<` ────────────────────────────────────────────────
     if !preEscape && workFirst == "<" {
       state.depth = 0
-      let rest = String(workChars.dropFirst())
-      if rest.isEmpty { return [] }
-      return parseLine(rest, state: &state)
+      return parseLine(Array(work.dropFirst()), state: &state)
     }
 
     // ── Section headings `>` ──────────────────────────────────────────────
     if !preEscape && workFirst == ">" {
-      var level = 0
-      var idx = 0
-      while idx < workChars.count && workChars[idx] == ">" {
-        level += 1
-        idx += 1
-      }
+      let level = work.prefix(while: { $0 == ">" }).count
       state.depth = level
-      let content = String(workChars[idx...])
+      let content = Array(work.dropFirst(level))
       guard !content.isEmpty else { return [] }
 
-      let spans = makeOutput(line: Array(content), state: &state, preEscape: false)
+      let spans = makeOutput(line: content, state: &state, preEscape: false)
       // Heading slugs auto-register as anchors (MicronParser.py:308-310);
       // the slug stays pending even when the heading renders no output.
-      let slug = slugify(content)
+      let slug = slugify(String(codePoints: content))
       if !slug.isEmpty { state.pendingAnchors.append((name: slug, headingSlug: true)) }
       guard !spans.isEmpty else { return [] }
       return [.heading(level: level, spans: spans, depth: level, slug: slug)]
     }
 
     // ── Horizontal rule `-` ───────────────────────────────────────────────
-    // Python indexes the line by code point, so a combining mark after `-` is the fill
-    // character, not part of the first character.
-    let workScalars = Array(workLine.unicodeScalars)
-    if !preEscape && workScalars.first == "-" {
+    if !preEscape && workFirst == "-" {
       // A two-code-point line keeps its fill when urwid draws it in one cell
       // (MicronParser.py:603-613).
       let fillChar: Character
-      if workScalars.count == 2 && MicronCellWidth.isSingleCell(workScalars[1]) {
-        fillChar = Character(workScalars[1])
+      if work.count == 2 && MicronCellWidth.isSingleCell(work[1]) {
+        fillChar = Character(work[1])
       } else {
         fillChar = "\u{2500}"
       }
@@ -437,7 +434,7 @@ public struct MicronParser {
     }
 
     // ── Regular line ──────────────────────────────────────────────────────
-    let spans = makeOutput(line: Array(workLine), state: &state, preEscape: preEscape)
+    let spans = makeOutput(line: work, state: &state, preEscape: preEscape)
     guard !spans.isEmpty else { return [] }
     return [.line(spans, depth: state.depth, alignment: state.alignment)]
   }
@@ -446,15 +443,16 @@ public struct MicronParser {
 
   /// Tokenize a single line into `MicronSpan` values.
   ///
-  /// Mirrors `make_output()` in the Python parser.
+  /// Mirrors `make_output()` in the Python parser, which reads the line one code point at a
+  /// time (MicronParser.py:883-884).
   private static func makeOutput(
-    line: [Character],
+    line: [Unicode.Scalar],
     state: inout ParseState,
     preEscape: Bool
   ) -> [MicronSpan] {
 
     var output: [MicronSpan] = []
-    var part = ""  // accumulator for plain-text runs
+    var part = String.UnicodeScalarView()  // accumulator for plain-text runs
     var mode: ParseMode = .text
     var escape = preEscape
     var i = 0
@@ -462,8 +460,8 @@ public struct MicronParser {
     // Helper—flush the current text accumulator into a span
     func flushPart() {
       if !part.isEmpty {
-        output.append(.text(part, style: state.currentStyle()))
-        part = ""
+        output.append(.text(String(part), style: state.currentStyle()))
+        part = String.UnicodeScalarView()
       }
     }
 
@@ -486,14 +484,14 @@ public struct MicronParser {
         case "F":
           // `FT rrggbb  (6-digit) or `F rgb (3-digit)
           if i + 1 < line.count && line[i + 1] == "T" && i + 7 < line.count {
-            let hex = String(line[(i + 2)..<(i + 8)])
+            let hex = String(codePoints: line[(i + 2)..<(i + 8)])
             state.fgColor = parseColor6(hex) ?? .default
             i += 7
             mode = .text
             i += 1
             continue
           } else if i + 3 < line.count {
-            let hex = String(line[(i + 1)..<(i + 4)])
+            let hex = String(codePoints: line[(i + 1)..<(i + 4)])
             state.fgColor = parseColor3(hex) ?? .default
             i += 3
             mode = .text
@@ -507,14 +505,14 @@ public struct MicronParser {
         case "B":
           // `BT rrggbb  (6-digit) or `B rgb (3-digit)
           if i + 1 < line.count && line[i + 1] == "T" && i + 7 < line.count {
-            let hex = String(line[(i + 2)..<(i + 8)])
+            let hex = String(codePoints: line[(i + 2)..<(i + 8)])
             state.bgColor = parseColor6(hex) ?? .default
             i += 7
             mode = .text
             i += 1
             continue
           } else if i + 3 < line.count {
-            let hex = String(line[(i + 1)..<(i + 4)])
+            let hex = String(codePoints: line[(i + 1)..<(i + 4)])
             state.bgColor = parseColor3(hex) ?? .default
             i += 3
             mode = .text
@@ -549,12 +547,12 @@ public struct MicronParser {
           let nameStart = i + 1
           var nameEnd = nameStart
           while nameEnd < line.count
-            && (line[nameEnd].isLetter || line[nameEnd].isNumber || line[nameEnd] == "_"
+            && (NomadNetUtil.isPythonAlnum(line[nameEnd]) || line[nameEnd] == "_"
               || line[nameEnd] == "-")
           {
             nameEnd += 1
           }
-          let anchorName = String(line[nameStart..<nameEnd])
+          let anchorName = String(codePoints: line[nameStart..<nameEnd])
           if !anchorName.isEmpty {
             state.pendingAnchors.append((name: anchorName, headingSlug: false))
           }
@@ -625,11 +623,9 @@ public struct MicronParser {
   /// Parse a partial descriptor after the opening `` `{ ``.
   ///
   /// Format: `url\`refresh\`fields}`
-  private static func parsePartial(_ s: String) -> MicronPartial? {
+  private static func parsePartial(_ s: [Unicode.Scalar]) -> MicronPartial? {
     guard let endPos = s.firstIndex(of: "}") else { return nil }
-    let descriptor = String(s[s.startIndex..<endPos])
-    let components = descriptor.split(separator: "`", omittingEmptySubsequences: false).map(
-      String.init)
+    let components = split(s[..<endPos], on: "`")
 
     let url: String
     var refresh: Double? = nil
@@ -637,14 +633,14 @@ public struct MicronParser {
 
     switch components.count {
     case 1:
-      url = components[0]
+      url = String(codePoints: components[0])
     case 2:
-      url = components[0]
-      refresh = Double(components[1])
+      url = String(codePoints: components[0])
+      refresh = Double(String(codePoints: components[1]))
     case 3...:
-      url = components[0]
-      refresh = Double(components[1])
-      fields = components[2].split(separator: "|").map(String.init)
+      url = String(codePoints: components[0])
+      refresh = Double(String(codePoints: components[1]))
+      fields = fieldList(components[2])
     default:
       return nil
     }
@@ -660,17 +656,14 @@ public struct MicronParser {
   ///
   /// Format: `label\`url\`fields]`—returns (link, charactersConsumed).
   private static func parseLink(
-    line: [Character],
+    line: [Unicode.Scalar],
     afterBracket: Int,
     state: ParseState
   ) -> (MicronLink, Int)? {
     // Find the closing `]`
-    let slice = line[afterBracket...]
-    guard let relEnd = slice.firstIndex(of: "]") else { return nil }
+    guard let end = find("]", in: line, from: afterBracket) else { return nil }
 
-    let linkData = String(line[afterBracket..<relEnd])
-    let components = linkData.split(separator: "`", omittingEmptySubsequences: false).map(
-      String.init)
+    let components = split(line[afterBracket..<end], on: "`")
 
     let label: String
     let url: String
@@ -678,22 +671,22 @@ public struct MicronParser {
 
     switch components.count {
     case 1:
-      url = components[0]
+      url = String(codePoints: components[0])
       label = url.isEmpty ? "" : url
     case 2:
-      label = components[0]
-      url = components[1]
+      label = String(codePoints: components[0])
+      url = String(codePoints: components[1])
     case 3...:
-      label = components[0]
-      url = components[1]
-      fields = components[2].split(separator: "|").map(String.init)
+      label = String(codePoints: components[0])
+      url = String(codePoints: components[1])
+      fields = fieldList(components[2])
     default:
       return nil
     }
 
     guard !url.isEmpty else { return nil }
     let displayLabel = label.isEmpty ? url : label
-    let consumed = line.distance(from: line.startIndex, to: relEnd) - afterBracket + 1  // +1 for ]
+    let consumed = end - afterBracket + 1  // +1 for ]
 
     let link = MicronLink(
       label: displayLabel,
@@ -708,22 +701,19 @@ public struct MicronParser {
   ///
   /// Format: `flags|name\`data>`—returns (field, charactersConsumed).
   private static func parseField(
-    line: [Character],
+    line: [Unicode.Scalar],
     afterBracket: Int,
     state: ParseState
   ) -> (MicronField, Int)? {
     // Find the closing backtick that ends the flags|name portion
-    let slice = Array(line[afterBracket...])
-    guard let backtickRel = slice.firstIndex(of: "`") else { return nil }
-    let backtickAbs = afterBracket + backtickRel
+    guard let backtickAbs = find("`", in: line, from: afterBracket) else { return nil }
 
-    let fieldContent = String(line[afterBracket..<backtickAbs])
+    let fieldContent = line[afterBracket..<backtickAbs]
 
     // Find the closing `>`
-    guard let closingRel = Array(line[backtickAbs...]).firstIndex(of: ">") else { return nil }
-    let closingAbs = backtickAbs + closingRel
+    guard let closingAbs = find(">", in: line, from: backtickAbs) else { return nil }
 
-    let fieldData = String(line[(backtickAbs + 1)..<closingAbs])
+    let fieldData = String(codePoints: line[(backtickAbs + 1)..<closingAbs])
 
     // Parse flags|name
     var fieldType: MicronFieldType = .text
@@ -734,30 +724,29 @@ public struct MicronParser {
     var prechecked = false
 
     if fieldContent.contains("|") {
-      let parts = fieldContent.split(separator: "|", omittingEmptySubsequences: false).map(
-        String.init)
-      var flags = parts.count > 0 ? parts[0] : ""
-      name = parts.count > 1 ? parts[1] : ""
-      value = parts.count > 2 ? parts[2] : ""
-      if parts.count > 3, parts[3] == "*" { prechecked = true }
+      let parts = split(fieldContent, on: "|")
+      var flags = parts.count > 0 ? Array(parts[0]) : []
+      name = parts.count > 1 ? String(codePoints: parts[1]) : ""
+      value = parts.count > 2 ? String(codePoints: parts[2]) : ""
+      if parts.count > 3, parts[3].elementsEqual("*".unicodeScalars) { prechecked = true }
 
       if flags.contains("^") {
         fieldType = .radio
-        flags = flags.replacingOccurrences(of: "^", with: "")
+        flags.removeAll { $0 == "^" }
       } else if flags.contains("?") {
         fieldType = .checkbox
-        flags = flags.replacingOccurrences(of: "?", with: "")
+        flags.removeAll { $0 == "?" }
       } else if flags.contains("!") {
         fieldType = .masked
-        flags = flags.replacingOccurrences(of: "!", with: "")
+        flags.removeAll { $0 == "!" }
         masked = true
       }
 
-      if !flags.isEmpty, let w = Int(flags) {
+      if !flags.isEmpty, let w = Int(String(codePoints: flags)) {
         width = min(w, 256)
       }
     } else {
-      name = fieldContent
+      name = String(codePoints: fieldContent)
     }
 
     let consumed = closingAbs - afterBracket + 1  // +1 for >
@@ -778,6 +767,34 @@ public struct MicronParser {
     )
     _ = masked  // suppress warning; fieldType .masked already encodes this
     return (field, consumed)
+  }
+
+  /// Splits `s` at every `separator`, keeping empty components, as Python's `str.split`.
+  private static func split(_ s: ArraySlice<Unicode.Scalar>, on separator: Unicode.Scalar)
+    -> [ArraySlice<Unicode.Scalar>]
+  {
+    s.split(separator: separator, omittingEmptySubsequences: false)
+  }
+
+  /// The non-empty `|`-separated names in a link's or partial's field list.
+  private static func fieldList(_ s: ArraySlice<Unicode.Scalar>) -> [String] {
+    s.split(separator: "|").map { String(codePoints: $0) }
+  }
+
+  /// The index of the first `scalar` in `line` at or after `start`, as Python's `str.find`.
+  private static func find(_ scalar: Unicode.Scalar, in line: [Unicode.Scalar], from start: Int)
+    -> Int?
+  {
+    guard start < line.count else { return nil }
+    return line[start...].firstIndex(of: scalar)
+  }
+
+  /// The index of the first occurrence of `needle` in `line`, as Python's `str.find`.
+  private static func firstIndex(of needle: [Unicode.Scalar], in line: [Unicode.Scalar]) -> Int? {
+    guard !needle.isEmpty, needle.count <= line.count else { return nil }
+    return (0...(line.count - needle.count)).first {
+      line[$0..<($0 + needle.count)].elementsEqual(needle)
+    }
   }
 
   // MARK: - Color parsers

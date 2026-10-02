@@ -121,6 +121,20 @@ public enum NomadNetUtil {
     }
   }
 
+  /// Whether Python's `str.isalnum()` accepts `scalar`.
+  ///
+  /// Python accepts a letter of category `Lu`, `Ll`, `Lt`, `Lm` or `Lo`, and a code point with
+  /// a numeric type (https://docs.python.org/3/library/stdtypes.html#str.isalnum). The
+  /// Alphabetic property that `Character.isLetter` reads also holds for some marks and symbols.
+  static func isPythonAlnum(_ scalar: Unicode.Scalar) -> Bool {
+    switch scalar.properties.generalCategory {
+    case .uppercaseLetter, .lowercaseLetter, .titlecaseLetter, .modifierLetter, .otherLetter:
+      return true
+    default:
+      return scalar.properties.numericType != nil
+    }
+  }
+
   // MARK:–sanitize_name
 
   /// Unicode blocks to strip from names.
