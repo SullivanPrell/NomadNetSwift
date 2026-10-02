@@ -169,12 +169,18 @@ public struct MicronParser {
   /// - Returns: A `MicronPage` carrying the AST, the anchors map, and any
   ///   `#!fg=` / `#!bg=` page colors.
   public static func parsePage(_ markup: String) -> MicronPage {
-    // The Python browser extracts #!fg=/#!bg= (Browser.py:1247-1267) and
-    // passes them to markup_to_attrmaps (Browser.py:1269), which seeds
-    // default_state with them (MicronParser.py:104-107 → :39-43) so plain
-    // text inherits the page colors and `f/`b reset to them.
-    let pageFg = pageColorDirective("#!fg=", in: markup)
-    let pageBg = pageColorDirective("#!bg=", in: markup)
+    parsePage(markup, colorsFrom: markup)
+  }
+
+  /// Parses `markup`, taking the page colors from `source`.
+  ///
+  /// The browser reads `#!fg=` and `#!bg=` from the markup a node sent, and renders that
+  /// markup after `strip_modifiers` (`Browser.py:1824-1846`), so the two can differ.
+  static func parsePage(_ markup: String, colorsFrom source: String) -> MicronPage {
+    // The page colors seed default_state (MicronParser.py:121), so plain text inherits them
+    // and `f/`b reset to them.
+    let pageFg = pageColorDirective("#!fg=", in: source)
+    let pageBg = pageColorDirective("#!bg=", in: source)
 
     var state = ParseState()
     if let fg = pageFg {
@@ -189,7 +195,9 @@ public struct MicronParser {
     var nodes: [MicronNode] = []
     var anchors: [String: Int] = [:]
 
-    let lines = markup.split(separator: "\n", omittingEmptySubsequences: false)
+    // markup_to_attrmaps strips control and zero-width characters first (MicronParser.py:107).
+    let lines = NomadNetUtil.stripControl(markup).split(
+      separator: "\n", omittingEmptySubsequences: false)
 
     for rawLine in lines {
       let line = String(rawLine)
@@ -413,17 +421,15 @@ public struct MicronParser {
     }
 
     // ── Horizontal rule `-` ───────────────────────────────────────────────
-    if !preEscape && workFirst == "-" {
+    // Python indexes the line by code point, so a combining mark after `-` is the fill
+    // character, not part of the first character.
+    let workScalars = Array(workLine.unicodeScalars)
+    if !preEscape && workScalars.first == "-" {
+      // A two-code-point line keeps its fill when urwid draws it in one cell
+      // (MicronParser.py:603-613).
       let fillChar: Character
-      if workChars.count == 2 {
-        // Any single code point with ord >= 32 is a valid fill char
-        // (MicronParser.py:325-336)—only control characters fall back
-        // to the default. Python's len(line) == 2 counts code points,
-        // so a multi-scalar grapheme also falls back.
-        let candidate = workChars[1]
-        let scalars = candidate.unicodeScalars
-        let keep = scalars.count == 1 && (scalars.first?.value ?? 0) >= 32
-        fillChar = keep ? candidate : "\u{2500}"
+      if workScalars.count == 2 && MicronCellWidth.isSingleCell(workScalars[1]) {
+        fillChar = Character(workScalars[1])
       } else {
         fillChar = "\u{2500}"
       }

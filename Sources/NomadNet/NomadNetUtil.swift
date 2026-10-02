@@ -28,7 +28,8 @@ public enum NomadNetUtil {
   /// Strip Unicode modifiers, emoji skin tones, variation selectors, and control
   /// characters.
   ///
-  /// Normalizes CRLF to LF and removes NUL bytes.
+  /// Normalizes CRLF and CR to LF, removes the characters `STRIP_CONTROL_RE` matches, and
+  /// trims whitespace as `str.strip()` does (`util.py:92-126`).
   ///
   /// - Returns: `nil` if `text` is `nil`, otherwise the cleaned string.
   ///
@@ -75,10 +76,49 @@ public enum NomadNetUtil {
     t = t.replacingOccurrences(of: "\r\n", with: "\n")
     t = t.replacingOccurrences(of: "\r", with: "\n")
 
-    // Remove NUL bytes
-    t = t.replacingOccurrences(of: "\0", with: "")
+    return trimPythonWhitespace(stripControl(t))
+  }
 
-    return t.trimmingCharacters(in: .whitespaces)
+  /// Removes the control, zero-width, and bidi characters that Python's `STRIP_CONTROL_RE`
+  /// matches (`util.py:62-73`).
+  static func stripControl(_ text: String) -> String {
+    var scalars = String.UnicodeScalarView()
+    for scalar in text.unicodeScalars where !isStrippedControl(scalar.value) {
+      scalars.append(scalar)
+    }
+    return String(scalars)
+  }
+
+  /// Whether `STRIP_CONTROL_RE` matches the code point `value`.
+  static func isStrippedControl(_ value: UInt32) -> Bool {
+    switch value {
+    case 0x00...0x08, 0x0B, 0x0C, 0x0E...0x1F, 0x7F...0x9F, 0x200B...0x200F, 0x202A...0x202E,
+      0x2060...0x206F, 0xFEFF, 0xFFF0...0xFFF8:
+      return true
+    default:
+      return false
+    }
+  }
+
+  /// Removes leading and trailing whitespace as Python's `str.strip()` does, where
+  /// whitespace is every code point that `str.isspace()` accepts.
+  static func trimPythonWhitespace(_ text: String) -> String {
+    let scalars = text.unicodeScalars
+    guard let first = scalars.firstIndex(where: { !isPythonWhitespace($0.value) }),
+      let last = scalars.lastIndex(where: { !isPythonWhitespace($0.value) })
+    else { return "" }
+    return String(scalars[first...last])
+  }
+
+  /// Whether Python's `str.isspace()` accepts the code point `value`.
+  static func isPythonWhitespace(_ value: UInt32) -> Bool {
+    switch value {
+    case 0x09...0x0D, 0x1C...0x20, 0x85, 0xA0, 0x1680, 0x2000...0x200A, 0x2028, 0x2029, 0x202F,
+      0x205F, 0x3000:
+      return true
+    default:
+      return false
+    }
   }
 
   // MARK:–sanitize_name
@@ -106,13 +146,6 @@ public enum NomadNetUtil {
     ]
     return "[" + ranges.joined() + "]+"
   }()
-
-  /// Control characters and zero-width characters.
-  ///
-  /// Corresponds to Python `STRIP_CONTROL_RE`.
-  private static let stripControlPattern =
-    "[\u{00}-\u{08}\u{0B}\u{0C}\u{0E}-\u{1F}\u{7F}-\u{9F}"
-    + "\u{200B}-\u{200F}\u{202A}-\u{202E}\u{2060}-\u{206F}\u{FEFF}\u{FFF0}-\u{FFF8}]+"
 
   /// Surrogates and private-use areas.
   ///
@@ -171,8 +204,7 @@ public enum NomadNetUtil {
     let opts = String.CompareOptions.regularExpression
     result = result.replacingOccurrences(
       of: NomadNetUtil.stripBlocksPattern, with: "", options: opts)
-    result = result.replacingOccurrences(
-      of: NomadNetUtil.stripControlPattern, with: "", options: opts)
+    result = stripControl(result)
     result = result.replacingOccurrences(
       of: NomadNetUtil.stripPrivatePattern, with: "", options: opts)
 
