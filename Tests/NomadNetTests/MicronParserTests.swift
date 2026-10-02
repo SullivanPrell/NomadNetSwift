@@ -244,8 +244,8 @@ final class MicronParserTests: XCTestCase {
   }
 
   func testNonASCIIRuleFillCharsAreKept() {
-    // Python keeps any fill char with ord >= 32 (MicronParser.py:325-336)—non-ASCII
-    // fills like ═ / • / ★ are valid.
+    // Python keeps a fill char that urwid draws in one cell (MicronParser.py:603-613), so
+    // single-width non-ASCII fills like ═ / • / ★ are valid.
     for fill in ["\u{2550}", "\u{2022}", "\u{2605}"] {
       let nodes = parse("-" + fill)
       guard case .horizontalRule(let ch) = nodes.first else {
@@ -257,7 +257,7 @@ final class MicronParserTests: XCTestCase {
   }
 
   func testMultiScalarRuleFillCharFallsBackToDefault() {
-    // Python's len(line) == 2 check counts code points (MicronParser.py:326),
+    // Python's len(line) == 2 check counts code points (MicronParser.py:603),
     // so a multi-scalar grapheme (for example, a regional-indicator flag) is not a
     // two-character line and yields the default rule.
     let nodes = parse("-\u{1F1FA}\u{1F1F8}")

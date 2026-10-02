@@ -172,8 +172,8 @@ open class NomadNetBrowser: @unchecked Sendable {
   ///   - data: Raw bytes from the RNS resource response.
   ///   - url:  The URL that was requested.
   ///
-  /// If the data is valid UTF-8 page content it is parsed with
-  /// `MicronParser.parsePage(_:)`, stored in `currentPage`, and
+  /// If the data is valid UTF-8 page content, its markup is stripped with
+  /// `NomadNetUtil.stripModifiers(_:)`, parsed, stored in `currentPage`, and
   /// `onPageParsed` / `onPageLoaded` are called. Otherwise `onError`
   /// is called and `currentPage` is left untouched.
   public func handleResponse(_ data: Data, url: NomadNetURL) {
@@ -182,7 +182,10 @@ open class NomadNetBrowser: @unchecked Sendable {
       return
     }
     let markup = String(data: data, encoding: .utf8) ?? ""
-    let page = MicronParser.parsePage(markup)
+    // The browser renders the markup after strip_modifiers, and reads the page colors from
+    // the markup as sent (Browser.py:1824-1846).
+    let page = MicronParser.parsePage(
+      NomadNetUtil.stripModifiers(markup) ?? "", colorsFrom: markup)
     currentPage = page
     onPageParsed?(page, url)
     onPageLoaded?(page.nodes, url)
