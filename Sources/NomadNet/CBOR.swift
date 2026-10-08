@@ -71,6 +71,8 @@ public enum CBOR {
     case unsupportedType(UInt8)
     case invalidUTF8
     case trailingData
+    /// Arrays and maps nest more than 100 levels deep.
+    case nestingTooDeep
   }
 
   // MARK:–Encode
@@ -124,6 +126,10 @@ public enum CBOR {
 
   // MARK:–Decode
 
+  /// The deepest array or map nesting accepted: `_MAX_DEPTH` in NomadNet's vendored decoder
+  /// (`cbor.py:226`), which Python applies only to tags (`cbor.py:364`).
+  private static let maxDepth = 100
+
   /// Decode CBOR bytes to a `Value`.
   /// - Throws: `CBORError` if the data is malformed or unsupported.
   public static func decode(_ data: Data) throws -> Value {
@@ -134,7 +140,8 @@ public enum CBOR {
     return value
   }
 
-  private static func decode(data: Data, cursor: inout Data.Index) throws -> Value {
+  private static func decode(data: Data, cursor: inout Data.Index, depth: Int = 0) throws -> Value {
+    guard depth <= maxDepth else { throw CBORError.nestingTooDeep }
     guard cursor < data.endIndex else { throw CBORError.unexpectedEndOfData }
 
     let byte = data[cursor]
@@ -181,7 +188,7 @@ public enum CBOR {
       let count = try readUInt(info: info, data: data, cursor: &cursor)
       var items = [Value]()
       for _ in 0..<count {
-        items.append(try decode(data: data, cursor: &cursor))
+        items.append(try decode(data: data, cursor: &cursor, depth: depth + 1))
       }
       return .array(items)
 
@@ -189,8 +196,8 @@ public enum CBOR {
       let count = try readUInt(info: info, data: data, cursor: &cursor)
       var pairs = [(Value, Value)]()
       for _ in 0..<count {
-        let k = try decode(data: data, cursor: &cursor)
-        let v = try decode(data: data, cursor: &cursor)
+        let k = try decode(data: data, cursor: &cursor, depth: depth + 1)
+        let v = try decode(data: data, cursor: &cursor, depth: depth + 1)
         pairs.append((k, v))
       }
       return .map(pairs)

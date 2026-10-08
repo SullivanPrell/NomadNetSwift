@@ -3,6 +3,18 @@
 All notable changes to NomadNetSwift are documented here. This project follows
 [Semantic Versioning](https://semver.org).
 
+## [Unreleased]
+
+### Fixed
+
+- `CBOR.decode` and `CBOR.decodeAll` throw `CBORError.nestingTooDeep` for an array or map
+  nested more than 100 levels deep. NomadNet drops an RRC packet that fails to decode
+  (`RRC.py:965-969`). The port's decoder recursed once per level with no limit, so one hub
+  packet of 16,000 nested `0x81` bytes overflowed the stack and crashed the app. NomadNet's
+  vendored decoder sets `_MAX_DEPTH = 100` (`cbor.py:226`) but counts only tag nesting against
+  it (`cbor.py:311-312`, `:364`), so Python accepts array and map nesting up to its recursion
+  limit, near 330 levels. No RRC envelope nests more than three.
+
 ## [1.4.0]—NomadNet 1.4.4 parity
 
 NomadNetSwift tracks Python NomadNet 1.4.4, and requires ReticulumSwift 1.23.0, which ports
