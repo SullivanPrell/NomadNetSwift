@@ -5,6 +5,8 @@ All notable changes to NomadNetSwift are documented here. This project follows
 
 ## [Unreleased]
 
+## [1.5.0]—Micron by code point, and bounded CBOR nesting
+
 ### The Micron parser reads a line by code point
 
 NomadNet indexes a Micron line by code point (`MicronParser.py:476-694`, `:871-1141`).
