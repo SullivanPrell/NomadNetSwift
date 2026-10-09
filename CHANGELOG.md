@@ -5,6 +5,28 @@ All notable changes to NomadNetSwift are documented here. This project follows
 
 ## [Unreleased]
 
+### The Micron parser reads a line by code point
+
+NomadNet indexes a Micron line by code point (`MicronParser.py:476-694`, `:871-1141`).
+`MicronParser` read graphemes, so a combining mark, a regional-indicator pair, a Hangul jamo
+sequence, or a prepended letter such as U+0D4E joined the character beside it. It reads code
+points throughout:
+
+- `parsePage` splits a page on the `"\n"` code point (`MicronParser.py:117`), so `"\r\n"` ends
+  a line and leaves `"\r"` on it. `NomadNetBrowser` already broke lines there, because
+  `stripModifiers` rewrites `"\r\n"` as `"\n"` (`util.py:123`).
+- The `#`, `\`, `<`, and `>` line prefixes, the `` `t `` and `` `{ `` prefixes, and the `` `< ``
+  check that removes a heading's `>` compare one code point (`MicronParser.py:479-559`).
+- Inline tag characters, the `` `F `` and `` `B `` color values, and the link, field, and
+  partial delimiters compare and count code points (`MicronParser.py:883-1132`).
+- An anchor name runs while Python's `str.isalnum()` accepts the code point
+  (`MicronParser.py:939`). `Character.isLetter` also accepted symbols such as `Ⓐ` (U+24B6).
+- `pageColorDirective` finds `#!fg=` and `#!bg=` by code point (`Browser.py:1824-1844`), so a
+  combining mark after the first directive no longer hides it.
+
+`scripts/micron-reference-vectors.py` prints the expected values in `MicronCodePointTests` from
+NomadNet 1.4.4.
+
 ### Fixed
 
 - `CBOR.decode` and `CBOR.decodeAll` throw `CBORError.nestingTooDeep` for an array or map
