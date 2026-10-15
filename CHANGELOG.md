@@ -5,6 +5,13 @@ All notable changes to NomadNetSwift are documented here. This project follows
 
 ## [Unreleased]
 
+### Fixed
+
+- An RRC packet carrying an integer past `Int.max` no longer stops the process. The hub's packet
+  handler skips such a key, drops a packet whose type or resource size is out of range, and
+  ignores such a capability or limit. Python's CBOR decoder reads any integer as an unbounded
+  `int` (`RRC.py:964-975`, `:1013-1021`), so one hub packet could end the app.
+
 ## [1.5.0]—Micron by code point, and bounded CBOR nesting
 
 ### The Micron parser reads a line by code point

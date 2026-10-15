@@ -243,10 +243,12 @@ public enum RRC {
       throw DecodeError.unexpectedType("Expected CBOR map")
     }
     var kv: [Int: CBOR.Value] = [:]
-    for (k, v) in pairs { if case .uint(let u) = k { kv[Int(u)] = v } }
-    guard let vVersion = kv[Key.version], case .uint(let ver) = vVersion
+    for (k, v) in pairs { if case .uint(let u) = k, let key = Int(exactly: u) { kv[key] = v } }
+    guard let vVersion = kv[Key.version], case .uint(let verRaw) = vVersion,
+      let ver = Int(exactly: verRaw)
     else { throw DecodeError.missingField("version") }
-    guard let vType = kv[Key.type], case .uint(let rawType) = vType
+    guard let vType = kv[Key.type], case .uint(let typeRaw) = vType,
+      let rawType = Int(exactly: typeRaw)
     else { throw DecodeError.missingField("type") }
     guard let vID = kv[Key.id], case .bytes(let id) = vID
     else { throw DecodeError.missingField("id") }
@@ -261,7 +263,7 @@ public enum RRC {
     var nick: String? = nil
     if let vNick = kv[Key.nick], case .text(let n) = vNick { nick = n }
     return Envelope(
-      version: Int(ver), type: Int(rawType), id: id,
+      version: ver, type: rawType, id: id,
       ts: Int64(bitPattern: tsRaw), src: src, room: room, body: body, nick: nick)
   }
 
@@ -901,9 +903,10 @@ public final class RRCHub {
   public func onPacket(_ data: Data) {
     guard let value = try? CBOR.decode(data), case .map(let rawPairs) = value else { return }
     var env: [Int: CBOR.Value] = [:]
-    for (k, v) in rawPairs { if case .uint(let u) = k { env[Int(u)] = v } }
-    guard let typeVal = env[RRC.Key.type], case .uint(let tRaw) = typeVal else { return }
-    let t = Int(tRaw)
+    for (k, v) in rawPairs { if case .uint(let u) = k, let key = Int(exactly: u) { env[key] = v } }
+    guard let typeVal = env[RRC.Key.type], case .uint(let tRaw) = typeVal,
+      let t = Int(exactly: tRaw)
+    else { return }
 
     switch t {
     case RRC.MessageType.ping: handlePing(env: env)
@@ -946,7 +949,9 @@ public final class RRCHub {
     lock.withLock { welcomed = true }
     if case .map(let bodyPairs) = env[RRC.Key.body] {
       var body: [Int: CBOR.Value] = [:]
-      for (k, v) in bodyPairs { if case .uint(let u) = k { body[Int(u)] = v } }
+      for (k, v) in bodyPairs {
+        if case .uint(let u) = k, let key = Int(exactly: u) { body[key] = v }
+      }
       // Assign the hub metadata/limits under the lock—they are readable
       // from other threads (UI). Building the local caps/lims dicts inside
       // the lock is fine (no callouts).
@@ -956,15 +961,19 @@ public final class RRCHub {
         if case .map(let cp) = body[RRC.WelcomeField.caps] {
           var caps: [Int: Bool] = [:]
           for (k, v) in cp {
-            if case .uint(let u) = k, case .bool(let b) = v { caps[Int(u)] = b }
+            if case .uint(let u) = k, let key = Int(exactly: u), case .bool(let b) = v {
+              caps[key] = b
+            }
           }
           hubCaps = caps
         }
         if case .map(let lp) = body[RRC.WelcomeField.limits] {
           var lims: [Int: Int] = [:]
           for (k, v) in lp {
-            if case .uint(let u) = k {
-              if case .uint(let n) = v { lims[Int(u)] = Int(n) }
+            if case .uint(let u) = k, let key = Int(exactly: u), case .uint(let n) = v,
+              let limit = Int(exactly: n)
+            {
+              lims[key] = limit
             }
           }
           if let v = lims[RRC.LimitField.maxNickBytes] { maxNickBytes = v }
@@ -1232,12 +1241,14 @@ public final class RRCHub {
   private func handleResourceEnvelope(env: [Int: CBOR.Value]) {
     guard case .map(let bodyPairs) = env[RRC.Key.body] else { return }
     var body: [Int: CBOR.Value] = [:]
-    for (k, v) in bodyPairs { if case .uint(let u) = k { body[Int(u)] = v } }
+    for (k, v) in bodyPairs {
+      if case .uint(let u) = k, let key = Int(exactly: u) { body[key] = v }
+    }
     guard case .bytes(let rid) = body[RRC.ResField.id],
       case .text(let kind) = body[RRC.ResField.kind],
-      case .uint(let sizeu) = body[RRC.ResField.size], sizeu > 0
+      case .uint(let sizeu) = body[RRC.ResField.size], sizeu > 0,
+      let size = Int(exactly: sizeu)
     else { return }
-    let size = Int(sizeu)
     let sha256: Data? = {
       guard case .bytes(let b) = body[RRC.ResField.sha256] else { return nil }
       return b
