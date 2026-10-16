@@ -5,6 +5,12 @@ All notable changes to NomadNetSwift are documented here. This project follows
 
 ## [Unreleased]
 
+## [1.5.1]—RRC integers past Int.max are skipped
+
+NomadNetSwift requires ReticulumSwift 1.26.0, which refuses a resource advertisement with a data
+size past `Int.max`. The RRC hub converts that size with `Int(_:)`
+(`Sources/NomadNet/RRC.swift:658`).
+
 ### Fixed
 
 - An RRC packet carrying an integer past `Int.max` no longer stops the process. The hub's packet
