@@ -5,6 +5,24 @@ All notable changes to NomadNetSwift are documented here. This project follows
 
 ## [Unreleased]
 
+### NomadNet 1.5.1 parity
+
+NomadNetSwift now tracks NomadNet 1.5.1, up from 1.4.4, and requires ReticulumSwift 1.28.0
+for `Reticulum.wantsDestinationType(_:requester:)`.
+
+- An RRC hub under a destination name other than `rrc.hub` asks the host's Reticulum instance
+  for that destination type (`RRC.py:226-227`).
+
+### Not ported from NomadNet 1.5.1
+
+- `NomadNetworkApp` settings: the node's `link_cost` (default 17.8) and `stamp_value`, the
+  client's LXMF `stamp_value`, and the wanted `nomadnetwork.node` and `rrc.hub` types at
+  startup (`NomadNetworkApp.py:39-40`, `:109-111`, `:874-877`, `:1157-1165`, `Node.py:24-25`).
+  This package has no port of `NomadNetworkApp`, and `NNNode` doesn't create its destination,
+  so they belong to the host app.
+- The stamp costs and values in the text UI's announce stream (`ui/textui/Network.py`), and
+  the guide's text for the new settings (`ui/textui/Guide.py`).
+
 ## [1.5.1]—RRC integers past Int.max are skipped
 
 NomadNetSwift requires ReticulumSwift 1.26.0, which refuses a resource advertisement with a data

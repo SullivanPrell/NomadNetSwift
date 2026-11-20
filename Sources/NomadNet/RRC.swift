@@ -434,6 +434,11 @@ public final class RRCHub {
     self.hubHash = hubHash
     self.destName = destName ?? RRC.defaultDestName
     self.name = name ?? hubHash.hex.prefix(8).description
+    // NomadNet 1.5.1 `RRC.py:226-227`; the default name is wanted by the host app
+    // (`NomadNetworkApp.py:109-111`).
+    if self.destName != RRC.defaultDestName {
+      manager.app?.reticulum.wantsDestinationType(self.destName)
+    }
   }
 
   // MARK: - Room management
