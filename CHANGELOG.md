@@ -5,6 +5,8 @@ All notable changes to NomadNetSwift are documented here. This project follows
 
 ## [Unreleased]
 
+## [1.5.2]—NomadNet 1.5.1: a custom RRC hub name is a wanted type
+
 ### NomadNet 1.5.1 parity
 
 NomadNetSwift now tracks NomadNet 1.5.1, up from 1.4.4, and requires ReticulumSwift 1.28.0
