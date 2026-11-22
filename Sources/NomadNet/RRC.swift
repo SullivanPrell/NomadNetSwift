@@ -312,43 +312,135 @@ public final class RRCHub {
   public var name: String
 
   /// Current connection state.
-  public private(set) var status: Status = .disconnected
+  public var status: Status {
+    lock.lock()
+    defer { lock.unlock() }
+    return unsafeStatus
+  }
+  private var unsafeStatus: Status = .disconnected
   /// Human-readable form of `status`.
-  public private(set) var statusText: String = "Disconnected"
+  public var statusText: String {
+    lock.lock()
+    defer { lock.unlock() }
+    return unsafeStatusText
+  }
+  private var unsafeStatusText: String = "Disconnected"
   /// Whether the hub has answered HELLO with WELCOME.
-  public private(set) var welcomed: Bool = false
+  public var welcomed: Bool {
+    lock.lock()
+    defer { lock.unlock() }
+    return unsafeWelcomed
+  }
+  private var unsafeWelcomed: Bool = false
   /// Name the hub reported in WELCOME.
-  public private(set) var hubName: String? = nil
+  public var hubName: String? {
+    lock.lock()
+    defer { lock.unlock() }
+    return unsafeHubName
+  }
+  private var unsafeHubName: String? = nil
   /// Version the hub reported in WELCOME.
-  public private(set) var hubVersion: String? = nil
+  public var hubVersion: String? {
+    lock.lock()
+    defer { lock.unlock() }
+    return unsafeHubVersion
+  }
+  private var unsafeHubVersion: String? = nil
   /// Capability flags the hub reported in WELCOME.
-  public private(set) var hubCaps: [Int: Bool] = [:]
+  public var hubCaps: [Int: Bool] {
+    lock.lock()
+    defer { lock.unlock() }
+    return unsafeHubCaps
+  }
+  private var unsafeHubCaps: [Int: Bool] = [:]
   /// Message of the day the hub last published.
-  public var motd: String? = nil
+  public var motd: String? {
+    get {
+      lock.lock()
+      defer { lock.unlock() }
+      return unsafeMotd
+    }
+    set {
+      lock.lock()
+      unsafeMotd = newValue
+      lock.unlock()
+    }
+  }
+  private var unsafeMotd: String? = nil
 
   // Hub-advertised limits (updated on T_WELCOME)
   /// Maximum nickname length the hub accepts, in bytes.
-  public private(set) var maxNickBytes: Int = RRC.defaultMaxNickBytes
+  public var maxNickBytes: Int {
+    lock.lock()
+    defer { lock.unlock() }
+    return unsafeMaxNickBytes
+  }
+  private var unsafeMaxNickBytes: Int = RRC.defaultMaxNickBytes
   /// Maximum room-name length the hub accepts, in bytes.
-  public private(set) var maxRoomNameBytes: Int = RRC.defaultMaxRoomBytes
+  public var maxRoomNameBytes: Int {
+    lock.lock()
+    defer { lock.unlock() }
+    return unsafeMaxRoomNameBytes
+  }
+  private var unsafeMaxRoomNameBytes: Int = RRC.defaultMaxRoomBytes
   /// Maximum message body length the hub accepts, in bytes.
-  public private(set) var maxMsgBodyBytes: Int = RRC.defaultMaxMsgBytes
+  public var maxMsgBodyBytes: Int {
+    lock.lock()
+    defer { lock.unlock() }
+    return unsafeMaxMsgBodyBytes
+  }
+  private var unsafeMaxMsgBodyBytes: Int = RRC.defaultMaxMsgBytes
   /// Maximum rooms one session may join.
-  public private(set) var maxRoomsPerSession: Int = RRC.defaultMaxRooms
+  public var maxRoomsPerSession: Int {
+    lock.lock()
+    defer { lock.unlock() }
+    return unsafeMaxRoomsPerSession
+  }
+  private var unsafeMaxRoomsPerSession: Int = RRC.defaultMaxRooms
   /// Messages per minute the hub accepts from one session.
-  public private(set) var rateLimitMsgsPerMinute: Int = RRC.defaultRatePerMinute
+  public var rateLimitMsgsPerMinute: Int {
+    lock.lock()
+    defer { lock.unlock() }
+    return unsafeRateLimitMsgsPerMinute
+  }
+  private var unsafeRateLimitMsgsPerMinute: Int = RRC.defaultRatePerMinute
 
   // Room / message / member state (lock-protected)
   /// Rooms this session has joined.
-  public private(set) var rooms: Set<String> = []
+  public var rooms: Set<String> {
+    lock.lock()
+    defer { lock.unlock() }
+    return unsafeRooms
+  }
+  private var unsafeRooms: Set<String> = []
   /// Rooms holding messages the user has not read.
-  public private(set) var unreadRooms: Set<String> = []
+  public var unreadRooms: Set<String> {
+    lock.lock()
+    defer { lock.unlock() }
+    return unsafeUnreadRooms
+  }
+  private var unsafeUnreadRooms: Set<String> = []
   /// Rooms holding an unread message that mentions the user.
-  public private(set) var mentionRooms: Set<String> = []
+  public var mentionRooms: Set<String> {
+    lock.lock()
+    defer { lock.unlock() }
+    return unsafeMentionRooms
+  }
+  private var unsafeMentionRooms: Set<String> = []
   /// Hub-level notices received outside any room.
-  public private(set) var notices: [RRCMessage] = []
+  public var notices: [RRCMessage] {
+    lock.lock()
+    defer { lock.unlock() }
+    return unsafeNotices
+  }
+  private var unsafeNotices: [RRCMessage] = []
   /// Rooms the hub advertised, mapped to their topics.
-  public private(set) var availableRooms: [String: String?] = [:]
+  public var availableRooms: [String: String?] {
+    lock.lock()
+    defer { lock.unlock() }
+    return unsafeAvailableRooms
+  }
+  private var unsafeAvailableRooms: [String: String?] = [:]
 
   // Settings
   /// Whether the hub is redialled after an unexpected disconnect.
@@ -448,7 +540,7 @@ public final class RRCHub {
   public func addRoom(_ room: String) -> String {
     let r = (try? normalizeRoom(room)) ?? room.lowercased().trimmingCharacters(in: .whitespaces)
     lock.withLock {
-      rooms.insert(r)
+      unsafeRooms.insert(r)
       if messages[r] == nil { messages[r] = [] }
     }
     manager?.save()
@@ -460,10 +552,10 @@ public final class RRCHub {
   public func removeRoom(_ room: String) {
     guard let r = try? normalizeRoom(room) else { return }
     lock.withLock {
-      rooms.remove(r)
+      unsafeRooms.remove(r)
       messages.removeValue(forKey: r)
-      unreadRooms.remove(r)
-      mentionRooms.remove(r)
+      unsafeUnreadRooms.remove(r)
+      unsafeMentionRooms.remove(r)
       members.removeValue(forKey: r)
     }
     deleteHistory(room: r)
@@ -476,8 +568,8 @@ public final class RRCHub {
     guard let r = try? normalizeRoom(room) else { return }
     lock.withLock {
       messages[r] = []
-      unreadRooms.remove(r)
-      mentionRooms.remove(r)
+      unsafeUnreadRooms.remove(r)
+      unsafeMentionRooms.remove(r)
     }
     deleteHistory(room: r)
     manager?.notifyChange(self)
@@ -493,8 +585,8 @@ public final class RRCHub {
   public func markRead(_ room: String) {
     guard let r = try? normalizeRoom(room) else { return }
     lock.withLock {
-      unreadRooms.remove(r)
-      mentionRooms.remove(r)
+      unsafeUnreadRooms.remove(r)
+      unsafeMentionRooms.remove(r)
     }
     manager?.notifyChange(self)
   }
@@ -508,15 +600,15 @@ public final class RRCHub {
   /// Snapshot the joined-rooms set under the hub lock (callers on other threads
   /// must not iterate `rooms` directly—packet handlers mutate it).
   internal func snapshotRooms() -> [String] {
-    lock.withLock { Array(rooms) }
+    lock.withLock { Array(unsafeRooms) }
   }
 
   /// Snapshot the joined rooms and the parted-room message keys atomically
   /// under the hub lock, for a consistent view during save().
   internal func snapshotRoomsForSave() -> (joined: [String], parted: [String]) {
     lock.withLock {
-      let joined = Array(rooms)
-      let parted = messages.keys.filter { !rooms.contains($0) }
+      let joined = Array(unsafeRooms)
+      let parted = messages.keys.filter { !unsafeRooms.contains($0) }
       return (joined, parted)
     }
   }
@@ -580,7 +672,7 @@ public final class RRCHub {
   /// Opens a link to the hub and sends HELLO.
   public func connect() {
     let shouldSkip = lock.withLock { () -> Bool in
-      guard status != .connecting && status != .connected else { return true }
+      guard unsafeStatus != .connecting && unsafeStatus != .connected else { return true }
       manualDisconnect = false
       reconnectTask?.cancel()
       reconnectTask = nil
@@ -589,8 +681,8 @@ public final class RRCHub {
       // Set state directly: `lock` is already held, and `setStatus` would
       // re-acquire the same non-recursive NSLock → deadlock. Notify AFTER the
       // lock is released (below), mirroring `setStatus`'s own ordering.
-      self.status = .connecting
-      self.statusText = text
+      self.unsafeStatus = .connecting
+      self.unsafeStatusText = text
       return false
     }
     guard !shouldSkip else { return }
@@ -689,8 +781,8 @@ public final class RRCHub {
     helloTask = nil
     let shouldReconnect = lock.withLock { () -> Bool in
       unsafeLink = nil
-      welcomed = false
-      motd = nil
+      unsafeWelcomed = false
+      unsafeMotd = nil
       members.removeAll()
       resourceExpectations.removeAll()
       pendingJoins.removeAll()
@@ -812,7 +904,7 @@ public final class RRCHub {
     let pairs = makeBasePairs(type: RRC.MessageType.part, src: ownSrc, room: r)
     lock.withLock { pendingParts.insert(r) }
     try? sendEnv(pairs)
-    lock.withLock { rooms.remove(r) }
+    lock.withLock { unsafeRooms.remove(r) }
     manager?.save()
     manager?.notifyChange(self)
   }
@@ -951,7 +1043,7 @@ public final class RRCHub {
   }
 
   private func handleWelcome(env: [Int: CBOR.Value]) {
-    lock.withLock { welcomed = true }
+    lock.withLock { unsafeWelcomed = true }
     if case .map(let bodyPairs) = env[RRC.Key.body] {
       var body: [Int: CBOR.Value] = [:]
       for (k, v) in bodyPairs {
@@ -961,8 +1053,8 @@ public final class RRCHub {
       // from other threads (UI). Building the local caps/lims dicts inside
       // the lock is fine (no callouts).
       lock.withLock {
-        if case .text(let n) = body[RRC.WelcomeField.hub] { hubName = n }
-        if case .text(let v) = body[RRC.WelcomeField.ver] { hubVersion = v }
+        if case .text(let n) = body[RRC.WelcomeField.hub] { unsafeHubName = n }
+        if case .text(let v) = body[RRC.WelcomeField.ver] { unsafeHubVersion = v }
         if case .map(let cp) = body[RRC.WelcomeField.caps] {
           var caps: [Int: Bool] = [:]
           for (k, v) in cp {
@@ -970,7 +1062,7 @@ public final class RRCHub {
               caps[key] = b
             }
           }
-          hubCaps = caps
+          unsafeHubCaps = caps
         }
         if case .map(let lp) = body[RRC.WelcomeField.limits] {
           var lims: [Int: Int] = [:]
@@ -981,11 +1073,13 @@ public final class RRCHub {
               lims[key] = limit
             }
           }
-          if let v = lims[RRC.LimitField.maxNickBytes] { maxNickBytes = v }
-          if let v = lims[RRC.LimitField.maxRoomNameBytes] { maxRoomNameBytes = v }
-          if let v = lims[RRC.LimitField.maxMsgBodyBytes] { maxMsgBodyBytes = v }
-          if let v = lims[RRC.LimitField.maxRoomsPerSession] { maxRoomsPerSession = v }
-          if let v = lims[RRC.LimitField.rateLimitMsgsPerMinute] { rateLimitMsgsPerMinute = v }
+          if let v = lims[RRC.LimitField.maxNickBytes] { unsafeMaxNickBytes = v }
+          if let v = lims[RRC.LimitField.maxRoomNameBytes] { unsafeMaxRoomNameBytes = v }
+          if let v = lims[RRC.LimitField.maxMsgBodyBytes] { unsafeMaxMsgBodyBytes = v }
+          if let v = lims[RRC.LimitField.maxRoomsPerSession] { unsafeMaxRoomsPerSession = v }
+          if let v = lims[RRC.LimitField.rateLimitMsgsPerMinute] {
+            unsafeRateLimitMsgsPerMinute = v
+          }
         }
       }
     }
@@ -1021,7 +1115,7 @@ public final class RRCHub {
       let sl = silentJoins.contains(r)
       if sj { pendingJoins.remove(r) }
       if sl { silentJoins.remove(r) }
-      rooms.insert(r)
+      unsafeRooms.insert(r)
       if messages[r] == nil { messages[r] = [] }
       var mset = members[r] ?? []
       for h in memberHashes { mset.insert(h) }
@@ -1078,7 +1172,7 @@ public final class RRCHub {
       }
       for h in memberHashes { members[r]?.remove(h) }
       if sp {
-        rooms.remove(r)
+        unsafeRooms.remove(r)
         members.removeValue(forKey: r)
       }
       return sp
@@ -1153,7 +1247,7 @@ public final class RRCHub {
     // Detect /list response
     if let parsed = RRCHub.parseRoomListNotice(body) {
       let silent: Bool = lock.withLock {
-        availableRooms = parsed
+        unsafeAvailableRooms = parsed
         let s = silentListPending > 0
         if s { silentListPending -= 1 }
         return s
@@ -1207,7 +1301,7 @@ public final class RRCHub {
     // MOTD: a notice with no room
     let room = rawRoom?.trimmingCharacters(in: .whitespaces).lowercased()
     if room == nil {
-      lock.withLock { motd = body }
+      lock.withLock { unsafeMotd = body }
       manager?.notifyChange(self)
     }
 
@@ -1233,7 +1327,7 @@ public final class RRCHub {
         pendingJoins.remove(rm)
         silentJoins.remove(rm)
         pendingParts.remove(rm)
-        if rollbackJoin { rooms.remove(rm) }
+        if rollbackJoin { unsafeRooms.remove(rm) }
       }
       if rollbackJoin { manager?.save() }
     }
@@ -1322,7 +1416,7 @@ public final class RRCHub {
     let text = String(decoding: payload, as: UTF8.self)
 
     if kind == RRC.ResKind.motd {
-      lock.withLock { motd = text }
+      lock.withLock { unsafeMotd = text }
       manager?.notifyChange(self)
     } else if processNoticeText(text) {
       return
@@ -1346,8 +1440,8 @@ public final class RRCHub {
       messages[room] = buf
       if !local, let r = msg.room {
         if r != manager?.activeRoomFor(hub: self) {
-          unreadRooms.insert(r)
-          if msg.mention { mentionRooms.insert(r) }
+          unsafeUnreadRooms.insert(r)
+          if msg.mention { unsafeMentionRooms.insert(r) }
         }
       }
     }
@@ -1381,14 +1475,14 @@ public final class RRCHub {
     lock.withLock {
       var m = msg
       m.room = target
-      notices.append(m)
-      if notices.count > 200 { notices.removeFirst(notices.count - 200) }
+      unsafeNotices.append(m)
+      if unsafeNotices.count > 200 { unsafeNotices.removeFirst(unsafeNotices.count - 200) }
       if let r = target {
         var buf = messages[r] ?? []
         buf.append(m)
         if let cap, buf.count > cap { buf.removeFirst(buf.count - cap) }
         messages[r] = buf
-        if r != manager?.activeRoomFor(hub: self) { unreadRooms.insert(r) }
+        if r != manager?.activeRoomFor(hub: self) { unsafeUnreadRooms.insert(r) }
       }
     }
     manager?.notifyMessages(hub: self, msg: msg)  // outside the lock (see recordMessage)
@@ -1600,8 +1694,8 @@ public final class RRCHub {
 
   internal func setStatus(_ status: Status, text: String? = nil) {
     lock.withLock {
-      self.status = status
-      if let t = text { statusText = t }
+      self.unsafeStatus = status
+      if let t = text { unsafeStatusText = t }
     }
     manager?.notifyChange(self)  // outside the lock (may re-enter the hub)
   }
@@ -1797,7 +1891,9 @@ public final class RRCManager {
 
   /// Whether any hub holds unread messages.
   public var hasUnread: Bool {
-    lock.withLock { hubs.contains { !$0.unreadRooms.isEmpty } }
+    // Snapshot, then ask each hub outside this lock: a hub holds its own lock while it calls
+    // activeRoomFor(hub:), so taking them in the other order could deadlock.
+    lock.withLock { hubs }.contains { !$0.unreadRooms.isEmpty }
   }
 
   /// Marks `room` on `hub` as the active view.
