@@ -5,6 +5,17 @@ All notable changes to NomadNetSwift are documented here. This project follows
 
 ## [Unreleased]
 
+### Fixed
+
+- A data race on `RRCHub` state. The hub wrote its status, rooms, unread and mention sets,
+  notices, MOTD and hub limits under its lock on network threads, while an app read the public
+  properties bare. Each public property now takes the lock. Under ThreadSanitizer, the new
+  `RRCHubConcurrencyTests` stress test reported a race on 3 of 3 runs before the fix and on
+  0 of 3 after it.
+- `RRCManager.hasUnread` no longer reads hub state while it holds the manager's lock. A hub
+  calls into the manager while it holds its own lock, so reading in the opposite order could
+  deadlock.
+
 ## [1.5.2]—NomadNet 1.5.1: a custom RRC hub name is a wanted type
 
 ### NomadNet 1.5.1 parity
