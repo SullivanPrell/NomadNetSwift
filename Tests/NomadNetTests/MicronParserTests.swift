@@ -467,14 +467,9 @@ final class MicronParserTests: XCTestCase {
   }
 
   func testLinkEmptyURLProducesNoLink() {
-    // `[label``]—empty URL, should not create a link
-    let nodes = parse("`[label``]")
-    let spans = assertSingleLine(nodes)
-    let links = spans.compactMap { span -> MicronLink? in
-      if case .link(let l) = span { return l }
-      return nil
-    }
-    XCTAssertTrue(links.isEmpty)
+    // `[label``]—empty URL: Python consumes it with no output (MicronParser.py:1074)
+    let spans = assertSingleLine(parse("`[label``]after"))
+    XCTAssertEqual(spans, [.text("after", style: .default)])
   }
 
   func testMultipleLinksOnOneLine() {

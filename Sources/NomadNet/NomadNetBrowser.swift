@@ -205,17 +205,12 @@ open class NomadNetBrowser: @unchecked Sendable {
   /// request body").
   ///
   /// - Returns: msgpack-encoded `Data`, or `nil` if both maps are empty.
+  @available(
+    *, deprecated,
+    message: "Use encodeValue(fields:variables:); Link.request(data:) double-packs this (bugs/008)"
+  )
   public static func encode(fields: [String: String], variables: [String: String]) -> Data? {
-    guard !fields.isEmpty || !variables.isEmpty else { return nil }
-
-    var pairs: [(MsgPack.Value, MsgPack.Value)] = []
-    for (key, value) in fields.sorted(by: { $0.key < $1.key }) {
-      pairs.append((.string("field_\(key)"), .string(value)))
-    }
-    for (key, value) in variables.sorted(by: { $0.key < $1.key }) {
-      pairs.append((.string("var_\(key)"), .string(value)))
-    }
-    return MsgPack.encode(.map(pairs))
+    encodeValue(fields: fields, variables: variables).map { MsgPack.encode($0) }
   }
 
   /// Encode form fields only (no URL variables) into the node's msgpack format.
@@ -224,6 +219,10 @@ open class NomadNetBrowser: @unchecked Sendable {
   /// path. Pass `[:]` to get `nil` back (signals "no request body").
   ///
   /// - Returns: msgpack-encoded `Data`, or `nil` if `fields` is empty.
+  @available(
+    *, deprecated,
+    message: "Use encodeValue(fields:variables:); Link.request(data:) double-packs this (bugs/008)"
+  )
   public static func encodeFields(_ fields: [String: String]) -> Data? {
     encode(fields: fields, variables: [:])
   }
@@ -241,8 +240,8 @@ open class NomadNetBrowser: @unchecked Sendable {
   /// this: `encode` returns *already-msgpacked* `Data`, and the `data:` overload
   /// re-wraps it as a msgpack `.bytes` value—double-packing it, so a Python node
   /// sees `bytes` instead of a `dict` and silently drops every field. (See
-  /// swift_devel/bugs/008.) The `encode`/`encodeFields` `Data` APIs are retained
-  /// only for callers talking to a custom host that expects a pre-packed blob.
+  /// swift_devel/bugs/008.) The deprecated `encode`/`encodeFields` `Data` APIs are
+  /// `MsgPack.encode` of this value, for a custom host that expects a pre-packed blob.
   ///
   /// Keys are emitted deterministically (fields then variables, each sorted).
   ///

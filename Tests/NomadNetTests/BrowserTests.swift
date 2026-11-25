@@ -407,6 +407,7 @@ final class PageRequestTests: XCTestCase {
 
 // MARK: - Field encoding tests
 
+@available(*, deprecated, message: "Exercises the deprecated Data encoders.")
 final class FieldEncodingTests: XCTestCase {
 
   // The Python browser sends request_data as a dict with keys:
@@ -544,6 +545,7 @@ final class FieldEncodingTests: XCTestCase {
     XCTAssertEqual(dict.count, 2)
   }
 
+  @available(*, deprecated, message: "Compares against the deprecated encoder.")
   func testEncodeValueMatchesEncodeWhenPacked() {
     // encodeValue(...) packed == encode(...)—same bytes, just not pre-packed.
     let value = NomadNetBrowser.encodeValue(fields: ["a": "1"], variables: [:])

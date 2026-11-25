@@ -125,6 +125,8 @@ public struct MicronField: Equatable {
   public var label: String
   /// Preferred display width (columns) for text fields.
   public var width: Int
+  /// Rows of a multi-line text field, from a `WxR` width flag (NomadNet 1.3.0).
+  public var rows: Int
   /// Whether a checkbox/radio is pre-checked.
   public var prechecked: Bool
   /// Style the field is rendered with.
@@ -137,6 +139,7 @@ public struct MicronField: Equatable {
     value: String = "",
     label: String = "",
     width: Int = 24,
+    rows: Int = 1,
     prechecked: Bool = false,
     style: MicronStyle = .default
   ) {
@@ -145,6 +148,7 @@ public struct MicronField: Equatable {
     self.value = value
     self.label = label
     self.width = width
+    self.rows = rows
     self.prechecked = prechecked
     self.style = style
   }
@@ -248,4 +252,35 @@ public enum MicronNode: Equatable {
 
   /// An anchor declaration (`` `:<name> ``)—zero-width position marker.
   case anchor(name: String)
+
+  /// An inline image line (`` `(alt`props`url) ``), indented by section `depth`.
+  case image(MicronImage, depth: Int)
+}
+
+/// An image line, NomadNet 1.4.0 (`MicronParser.py` `parse_image`).
+///
+/// The page names the image; fetching and drawing it is the renderer's job.
+public struct MicronImage: Equatable {
+  /// Alternative text, shown when the image can't load.
+  public var altText: String
+  /// Image location, resolved like a link URL, or empty when the markup gave none.
+  public var url: String
+  /// The `w=` property as written; Python uses it as columns when it is all digits.
+  public var width: String?
+  /// The `h=` property as written; Python uses it as rows when it is all digits.
+  public var height: String?
+  /// The `a=` property: `c`, `l`, `r`, or the full word.
+  public var alignment: MicronAlignment?
+
+  /// Creates an image line from its markup fields.
+  public init(
+    altText: String, url: String, width: String? = nil, height: String? = nil,
+    alignment: MicronAlignment? = nil
+  ) {
+    self.altText = altText
+    self.url = url
+    self.width = width
+    self.height = height
+    self.alignment = alignment
+  }
 }

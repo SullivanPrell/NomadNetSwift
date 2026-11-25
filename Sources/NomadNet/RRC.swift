@@ -57,7 +57,7 @@ public struct RRCMessage {
     self.room = room
     self.src = src
     self.nick = nick
-    self.text = text
+    self.text = NomadNetUtil.stripModifiers(text) ?? text  // RRC.py:206
     self.ts = ts
   }
 }
@@ -465,6 +465,11 @@ public final class RRCHub {
   internal var silentJoins: Set<String> = []
   internal var silentWhoRooms: Set<String> = []
   internal var silentListPending: Int = 0
+  /// Display-only `/who` members known by a 12-hex identity prefix (`RRC.py` `prefix_members`).
+  internal var prefixMembers: [String: Set<Data>] = [:]
+  private var listFragmentUntil: TimeInterval = 0  // systemUptime, like time.monotonic()
+  /// `LIST_FRAGMENT_WINDOW`: how long after a `/list` line chunked continuation lines are merged.
+  internal static let listFragmentWindow: TimeInterval = 60
   internal var sendHook: ((Data) -> Void)? = nil
 
   // MARK: Class-level constants
@@ -525,7 +530,7 @@ public final class RRCHub {
     self.manager = manager
     self.hubHash = hubHash
     self.destName = destName ?? RRC.defaultDestName
-    self.name = name ?? hubHash.hex.prefix(8).description
+    self.name = name ?? RNSUtilities.prettyhexrep(hubHash)
     // NomadNet 1.5.1 `RRC.py:226-227`; the default name is wanted by the host app
     // (`NomadNetworkApp.py:109-111`).
     if self.destName != RRC.defaultDestName {
@@ -557,6 +562,7 @@ public final class RRCHub {
       unsafeUnreadRooms.remove(r)
       unsafeMentionRooms.remove(r)
       members.removeValue(forKey: r)
+      prefixMembers.removeValue(forKey: r)
     }
     deleteHistory(room: r)
     manager?.save()
@@ -578,7 +584,7 @@ public final class RRCHub {
   /// Returns the member destination hashes last reported for `room`.
   public func getMembers(room: String) -> [Data] {
     guard let r = try? normalizeRoom(room) else { return [] }
-    return lock.withLock { Array(members[r] ?? []) }
+    return lock.withLock { Array((members[r] ?? []).union(prefixMembers[r] ?? [])) }
   }
 
   /// Marks `room` read, clearing its unread and mention flags.
@@ -725,38 +731,58 @@ public final class RRCHub {
     }
 
     do {
-      let dest = try Destination(
-        identity: hubIdent, direction: .out, kind: .single,
-        appName: "rrc", aspects: ["hub"])
+      let dest = try hubDestination(identity: hubIdent)
       guard dest.hash == hubHash else {
         setStatus(.failed, text: "Hash/destination name mismatch")
         return
       }
-      let link = try Link.initiate(destination: dest, transport: transport)
-      link.onDataReceived = { [weak self] data, _ in self?.onPacket(data) }
-      link.onEstablished = { [weak self] _ in self?.onEstablished() }
-      link.onClosed = { [weak self] _ in self?.onClosed() }
-      lock.withLock { unsafeLink = link }
+      adoptLink(try Link.initiate(destination: dest, transport: transport))
     } catch {
       setStatus(.failed, text: "Connect error: \(error)")
     }
     _ = identity  // suppress unused warning
   }
 
-  private func onEstablished() {
-    guard let mgr = manager, let identity = mgr.identity else { return }
-    setStatus(.connecting, text: "Identified, sending HELLO")
-    try? unsafeLink?.identify(as: identity)
-    unsafeLink?.resourceStrategy = .acceptApp
+  /// The hub's destination under `destName` (`RRC.py:417-424`).
+  internal func hubDestination(identity: Identity) throws -> Destination {
+    let (appName, aspects) = Destination.appAndAspects(fromFullName: destName)
+    return try Destination(
+      identity: identity, direction: .out, kind: .single, appName: appName, aspects: aspects)
+  }
+
+  /// Makes `link` this hub's link and wires its callbacks to the hub.
+  internal func adoptLink(_ link: Link) {
+    link.onDataReceived = { [weak self] data, _ in self?.onPacket(data) }
+    link.onEstablished = { [weak self] _ in self?.onEstablished() }
+    link.onClosed = { [weak self] _ in self?.onClosed() }
+    lock.withLock { unsafeLink = link }
+  }
+
+  /// Tears the link down outside the hub lock: teardown runs `onClosed`, which takes it.
+  private func teardownLink() {
+    try? lock.withLock { unsafeLink }?.teardown()
+  }
+
+  internal func onEstablished() {
+    guard let mgr = manager, let identity = mgr.identity,
+      let link = lock.withLock({ unsafeLink })
+    else { return }
+    link.resourceStrategy = .acceptApp
     // Accept and consume hub→client resource transfers (MOTD, long notices, and
     // large /who or /list replies the hub sends as a resource when they exceed the
     // link packet MDU). Without these callbacks the Link rejects every hub resource.
-    unsafeLink?.onResourceAdvertised = { [weak self] adv, _ in
+    link.onResourceAdvertised = { [weak self] adv, _ in
       self?.resourceAdvertised(size: Int(adv.dataSize)) ?? false
     }
-    unsafeLink?.onResourceConcluded = { [weak self] payload, _, _ in
+    link.onResourceConcluded = { [weak self] payload, _, _ in
       self?.resourceConcluded(payload: payload)
     }
+    // RRC.py:449-454: a failed identify ends the connection.
+    do { try link.identify(as: identity) } catch {
+      teardownLink()
+      return
+    }
+    setStatus(.connecting, text: "Identified, sending HELLO")
 
     helloTask?.cancel()
     helloTask = Task { [weak self] in
@@ -767,13 +793,13 @@ public final class RRCHub {
         attempts += 1
         try? await Task.sleep(nanoseconds: 3_000_000_000)
       }
-      if !self.welcomed && !Task.isCancelled {
-        self.setStatus(.failed, text: "WELCOME timeout")
-        self.lock.withLock {
-          try? self.unsafeLink?.teardown()
-        }
-      }
+      if !self.welcomed && !Task.isCancelled { self.welcomeTimedOut() }
     }
+  }
+
+  internal func welcomeTimedOut() {
+    setStatus(.failed, text: "WELCOME timeout")
+    teardownLink()
   }
 
   private func onClosed() {
@@ -784,6 +810,7 @@ public final class RRCHub {
       unsafeWelcomed = false
       unsafeMotd = nil
       members.removeAll()
+      prefixMembers.removeAll()
       resourceExpectations.removeAll()
       pendingJoins.removeAll()
       pendingParts.removeAll()
@@ -912,34 +939,16 @@ public final class RRCHub {
   /// Sends `text` to `room` and returns the message identifier.
   @discardableResult
   public func sendMessage(room: String, text: String) throws -> Data {
-    let r = try normalizeRoom(room)
-    guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-      throw RRCHubError.messageTooLong
-    }
-    guard text.utf8.count <= maxMsgBodyBytes else { throw RRCHubError.messageTooLong }
-    let ownSrc = manager?.identity?.hash ?? Data()
-    let mid = Data((0..<8).map { _ in UInt8.random(in: 0...255) })
-    var pairs = makeBasePairs(type: RRC.MessageType.msg, src: ownSrc, room: r, mid: mid)
-    pairs.append((.uint(UInt64(RRC.Key.body)), .text(text)))
-    if let nick = getEffectiveNick() {
-      pairs.append((.uint(UInt64(RRC.Key.nick)), .text(nick)))
-    }
-    lock.withLock {
-      sentIDs.append(mid)
-      if sentIDs.count > 256 { sentIDs.removeFirst(sentIDs.count - 256) }
-    }
-    try sendEnv(pairs)
-    let msg = RRCMessage(
-      kind: "msg", room: r, src: ownSrc,
-      nick: getEffectiveNick(), text: text,
-      ts: Int64(Date().timeIntervalSince1970 * 1000))
-    recordMessage(msg, local: true)
-    return mid
+    try sendChat(type: RRC.MessageType.msg, kind: "msg", room: room, text: text)
   }
 
   /// Sends `text` to `room` as an action and returns the message identifier.
   @discardableResult
   public func sendAction(room: String, text: String) throws -> Data {
+    try sendChat(type: RRC.MessageType.action, kind: "action", room: room, text: text)
+  }
+
+  private func sendChat(type: Int, kind: String, room: String, text: String) throws -> Data {
     let r = try normalizeRoom(room)
     guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
       throw RRCHubError.messageTooLong
@@ -947,7 +956,7 @@ public final class RRCHub {
     guard text.utf8.count <= maxMsgBodyBytes else { throw RRCHubError.messageTooLong }
     let ownSrc = manager?.identity?.hash ?? Data()
     let mid = Data((0..<8).map { _ in UInt8.random(in: 0...255) })
-    var pairs = makeBasePairs(type: RRC.MessageType.action, src: ownSrc, room: r, mid: mid)
+    var pairs = makeBasePairs(type: type, src: ownSrc, room: r, mid: mid)
     pairs.append((.uint(UInt64(RRC.Key.body)), .text(text)))
     if let nick = getEffectiveNick() {
       pairs.append((.uint(UInt64(RRC.Key.nick)), .text(nick)))
@@ -958,7 +967,7 @@ public final class RRCHub {
     }
     try sendEnv(pairs)
     let msg = RRCMessage(
-      kind: "action", room: r, src: ownSrc,
+      kind: kind, room: r, src: ownSrc,
       nick: getEffectiveNick(), text: text,
       ts: Int64(Date().timeIntervalSince1970 * 1000))
     recordMessage(msg, local: true)
@@ -1053,7 +1062,9 @@ public final class RRCHub {
       // from other threads (UI). Building the local caps/lims dicts inside
       // the lock is fine (no callouts).
       lock.withLock {
-        if case .text(let n) = body[RRC.WelcomeField.hub] { unsafeHubName = n }
+        if case .text(let n) = body[RRC.WelcomeField.hub] {
+          unsafeHubName = NomadNetUtil.stripModifiers(n)  // RRC.py:1006
+        }
         if case .text(let v) = body[RRC.WelcomeField.ver] { unsafeHubVersion = v }
         if case .map(let cp) = body[RRC.WelcomeField.caps] {
           var caps: [Int: Bool] = [:]
@@ -1120,6 +1131,7 @@ public final class RRCHub {
       var mset = members[r] ?? []
       for h in memberHashes { mset.insert(h) }
       if let own = ownHash { mset.insert(own) }
+      for h in memberHashes + (ownHash.map { [$0] } ?? []) { upgradePrefixMember(room: r, h) }
       // Learn nick from single-joiner JOINED (rrcd 0.3.2+)
       if !sj, let nick = joinerNick, !nick.isEmpty, memberHashes.count == 1 {
         let jh = memberHashes[0]
@@ -1170,10 +1182,19 @@ public final class RRCHub {
         let ph = memberHashes[0]
         if ownHash == nil || ph != ownHash { nicks[ph] = nick }
       }
-      for h in memberHashes { members[r]?.remove(h) }
+      if members[r] != nil {
+        for h in memberHashes {
+          members[r]?.remove(h)
+          for p in prefixMembers[r] ?? [] where h.starts(with: p) {
+            prefixMembers[r]?.remove(p)
+            nicks.removeValue(forKey: p)
+          }
+        }
+      }
       if sp {
         unsafeRooms.remove(r)
         members.removeValue(forKey: r)
+        prefixMembers.removeValue(forKey: r)
       }
       return sp
     }
@@ -1219,6 +1240,7 @@ public final class RRCHub {
         nicks[s] = n
         if let r = rawRoom?.trimmingCharacters(in: .whitespaces).lowercased(), !r.isEmpty {
           members[r, default: []].insert(s)
+          upgradePrefixMember(room: r, s)
         }
       }
     }
@@ -1247,7 +1269,13 @@ public final class RRCHub {
     // Detect /list response
     if let parsed = RRCHub.parseRoomListNotice(body) {
       let silent: Bool = lock.withLock {
-        unsafeAvailableRooms = parsed
+        unsafeAvailableRooms = [:]
+        for (name, topic) in parsed {
+          unsafeAvailableRooms.updateValue(
+            NomadNetUtil.stripModifiers(topic), forKey: NomadNetUtil.stripModifiers(name) ?? name)
+        }
+        // The first /list line opens a window for chunked continuation lines.
+        listFragmentUntil = ProcessInfo.processInfo.systemUptime + RRCHub.listFragmentWindow
         let s = silentListPending > 0
         if s { silentListPending -= 1 }
         return s
@@ -1256,19 +1284,39 @@ public final class RRCHub {
       if silent { return true }
     }
 
-    // Detect /who response
+    // A /list continuation fragment: one "  name - topic" line per packet on low-MTU links.
+    if lock.withLock({ ProcessInfo.processInfo.systemUptime < listFragmentUntil }),
+      let m = body.wholeMatch(of: #/  (?<name>\S+?)(?: - (?<topic>.*))?/#)
+    {
+      lock.withLock {
+        let topic = m.topic.flatMap {
+          NomadNetUtil.stripModifiers($0.trimmingCharacters(in: .whitespaces))
+        }
+        unsafeAvailableRooms.updateValue(
+          topic?.isEmpty == false ? topic : nil, forKey: m.name.lowercased())
+        listFragmentUntil = ProcessInfo.processInfo.systemUptime + RRCHub.listFragmentWindow
+      }
+      manager?.notifyChange(self)
+      return true
+    }
+
+    // Detect /who response. A reply is a fresh roster snapshot for its prefix members.
     if let (whoRoom, entries) = RRCHub.parseWhoNotice(body) {
       let silentWho: Bool = lock.withLock {
         var mset = members[whoRoom] ?? []
+        for p in prefixMembers[whoRoom] ?? [] { nicks.removeValue(forKey: p) }
+        prefixMembers[whoRoom] = []
         for (nick, hexStr) in entries {
           guard let hBytes = rrcHexData(hexStr) else { continue }
           if nick == nil {
             mset.insert(hBytes)
+            upgradePrefixMember(room: whoRoom, hBytes)
+          } else if let known = mset.first(where: { $0.starts(with: hBytes) }) {
+            nicks[known] = nick
           } else {
-            for ph in mset where ph.hex.hasPrefix(hexStr) {
-              nicks[ph] = nick
-              break
-            }
+            // Only a 12-hex prefix is known: keep it display-only until the full hash shows up.
+            prefixMembers[whoRoom]?.insert(hBytes)
+            nicks[hBytes] = nick
           }
         }
         members[whoRoom] = mset
@@ -1283,6 +1331,16 @@ public final class RRCHub {
     return false
   }
 
+  /// Promotes a display-only prefix member once its full hash is known.
+  ///
+  /// Call with `lock` held. Python: `RRCHub._upgrade_prefix_member`. The prefix's nick
+  /// carries over unless the full hash already has one.
+  private func upgradePrefixMember(room: String, _ fullHash: Data) {
+    guard let p = prefixMembers[room]?.first(where: { fullHash.starts(with: $0) }) else { return }
+    prefixMembers[room]?.remove(p)
+    if let nick = nicks.removeValue(forKey: p), nicks[fullHash] == nil { nicks[fullHash] = nick }
+  }
+
   private func handleNotice(env: [Int: CBOR.Value]) {
     guard case .text(let body) = env[RRC.Key.body] else { return }
     let src: Data? = {
@@ -1294,16 +1352,21 @@ public final class RRCHub {
       return r
     }()
 
-    // Parse /list and /who service notices; a silently consumed auto reply is
-    // not recorded to the log.
-    if processNoticeText(body) { return }
+    // Parse /list and /who service notices; a consumed reply is not recorded to the log.
+    var wasParsed = processNoticeText(body)
 
-    // MOTD: a notice with no room
+    // MOTD: a notice with no room, unless it is a /list or /who reply (RRC.py:1252-1262).
     let room = rawRoom?.trimmingCharacters(in: .whitespaces).lowercased()
-    if room == nil {
-      lock.withLock { unsafeMotd = body }
+    if room == nil, !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+      let head = body.drop { $0.isWhitespace }.lowercased()
+      if head.hasPrefix("registered public rooms:") || head.hasPrefix("members in ") {
+        wasParsed = true
+      } else if !wasParsed {
+        lock.withLock { unsafeMotd = NomadNetUtil.stripModifiers(body) }
+      }
       manager?.notifyChange(self)
     }
+    if wasParsed { return }
 
     let msg = RRCMessage(
       kind: "notice", room: room, src: src, nick: nil, text: body,
@@ -1416,7 +1479,7 @@ public final class RRCHub {
     let text = String(decoding: payload, as: UTF8.self)
 
     if kind == RRC.ResKind.motd {
-      lock.withLock { unsafeMotd = text }
+      lock.withLock { unsafeMotd = NomadNetUtil.stripModifiers(text) }
       manager?.notifyChange(self)
     } else if processNoticeText(text) {
       return
@@ -1550,9 +1613,9 @@ public final class RRCHub {
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let path = mgr.historyPath(hub: self, room: room)
         if let handle = FileHandle(forWritingAtPath: path.path) {
-          handle.seekToEndOfFile()
-          handle.write(data)
-          handle.closeFile()
+          defer { try? handle.close() }
+          try handle.seekToEnd()
+          try handle.write(contentsOf: data)  // throws, unlike write(_:), which raises
         } else {
           FileManager.default.createFile(atPath: path.path, contents: data)
         }
@@ -1579,7 +1642,8 @@ public final class RRCHub {
       guard RRCHub.persistableRoom(room), let mgr = manager else { continue }
       let path = mgr.historyPath(hub: self, room: room)
       guard let data = try? Data(contentsOf: path), !data.isEmpty else { continue }
-      guard let items = try? CBOR.decodeAll(data) else { continue }
+      // RRC.py:776-799: a cut-off record ends the read; the records before it are kept.
+      let items = CBOR.decodeValidPrefix(data).values
       var msgs: [RRCMessage] = []
       for item in items {
         guard case .map(let pairs) = item else { continue }
@@ -1614,13 +1678,13 @@ public final class RRCHub {
     if bodyStr == "(none)" || bodyStr.isEmpty { return (room, []) }
 
     var entries: [(nick: String?, hex: String)] = []
-    // Split on ", " and parse each token as "nick (hex12)" or "fullhex32".
+    // Split on ", " and parse each token as "nick (hex12)" or "fullhex64" (NomadNet 1.4.3).
     let tokens = bodyStr.components(separatedBy: ", ")
-    let hex32 = try? NSRegularExpression(pattern: "^[0-9a-fA-F]{32}$")
+    let fullHex = try? NSRegularExpression(pattern: "^[0-9a-fA-F]{64}$")
     let nickParen = try? NSRegularExpression(pattern: "^(.+?)\\s\\(([0-9a-fA-F]{12})\\)$")
     for token in tokens {
       let t = token.trimmingCharacters(in: .whitespaces)
-      if hex32?.firstMatch(in: t, range: NSRange(t.startIndex..., in: t)) != nil {
+      if fullHex?.firstMatch(in: t, range: NSRange(t.startIndex..., in: t)) != nil {
         entries.append((nick: nil, hex: t.lowercased()))
       } else if let m = nickParen?.firstMatch(in: t, range: NSRange(t.startIndex..., in: t)) {
         let nickRange = m.range(at: 1)

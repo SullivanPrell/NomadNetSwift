@@ -166,6 +166,11 @@ public class NNDirectory {
   // MARK:–Announce management
 
   /// Adds a new node announce to the stream.
+  @available(
+    *, deprecated,
+    message:
+      "Unused, and not in Python; use nodeAnnounceReceived(sourceHash:appData:associatedPeer:)."
+  )
   public func addNodeAnnounce(_ record: AnnounceRecord) {
     nodeAnnounces.insert(record, at: 0)
     if nodeAnnounces.count > NNDirectory.announceStreamMaxLength {
@@ -174,6 +179,10 @@ public class NNDirectory {
   }
 
   /// Adds a new peer announce to the stream.
+  @available(
+    *, deprecated,
+    message: "Unused, and not in Python; use peerAnnounceReceived(sourceHash:appData:)."
+  )
   public func addPeerAnnounce(_ record: AnnounceRecord) {
     peerAnnounces.insert(record, at: 0)
     if peerAnnounces.count > NNDirectory.announceStreamMaxLength {
@@ -182,6 +191,11 @@ public class NNDirectory {
   }
 
   /// Adds a new PN announce to the stream.
+  @available(
+    *, deprecated,
+    message:
+      "Unused, and not in Python; use pnAnnounceReceived(sourceHash:appData:associatedPeer:associatedNode:)."
+  )
   public func addPNAnnounce(_ record: AnnounceRecord) {
     pnAnnounces.insert(record, at: 0)
     if pnAnnounces.count > NNDirectory.announceStreamMaxLength {
@@ -201,8 +215,14 @@ public class NNDirectory {
   /// Store or overwrite an entry.
   ///
   /// Python: `Directory.remember(entry)`.
+  /// A peer's trust also goes to the node its identity hosts. Python then saves to disk;
+  /// this directory has no path, so the caller saves.
   public func remember(_ entry: DirectoryEntry) {
     directoryEntries[entry.sourceHash] = entry
+    if let identity = Identity.recall(destinationHash: entry.sourceHash) {
+      let node = Destination.hash(fromFullName: "nomadnetwork.node", identity: identity)
+      directoryEntries[node]?.trustLevel = entry.trustLevel
+    }
   }
 
   /// Remove the entry with `sourceHash` if it exists.
@@ -253,14 +273,13 @@ public class NNDirectory {
     directoryEntries.values
       .filter { $0.hostsNode }
       .sorted { lhs, rhs in
-        // Sort rank takes priority; then trust (higher = first); then name
-        let lr = lhs.sortRank ?? Int.max
-        let rr = rhs.sortRank ?? Int.max
+        // Python's key is (sort_rank or 2^32, TRUSTED - trust, name or "_"). In Python 2^32 is
+        // XOR, 34, so an unranked node sorts after rank 33; kept for parity.
+        let lr = lhs.sortRank ?? (2 ^ 32)
+        let rr = rhs.sortRank ?? (2 ^ 32)
         if lr != rr { return lr < rr }
         if lhs.trustLevel != rhs.trustLevel { return lhs.trustLevel > rhs.trustLevel }
-        let ln = lhs.displayName ?? ""
-        let rn = rhs.displayName ?? ""
-        return ln < rn
+        return (lhs.displayName ?? "_") < (rhs.displayName ?? "_")
       }
   }
 
@@ -274,9 +293,10 @@ public class NNDirectory {
   /// Record a NomadNet node announce.
   ///
   /// Python: `Directory.node_announce_received(…)`.
-  ///
-  /// If `associatedPeer` has a `.trusted` entry, the node is auto-remembered as trusted.
+  /// An announce without app data is ignored. Python's auto-remember of a trusted peer's node
+  /// is commented out, so the node is not remembered.
   public func nodeAnnounceReceived(sourceHash: Data, appData: Data?, associatedPeer: Data?) {
+    guard appData != nil else { return }
     let record = AnnounceRecord(
       timestamp: Date(),
       sourceHash: sourceHash,
@@ -287,23 +307,13 @@ public class NNDirectory {
     while nodeAnnounces.count > Self.announceStreamMaxLength {
       nodeAnnounces.removeLast()
     }
-
-    // Auto-remember trusted node (Python: if trust_level(associated_peer) == TRUSTED)
-    if let peer = associatedPeer, trustLevel(peer) == .trusted {
-      if directoryEntries[sourceHash] == nil {
-        let name = appData.flatMap { String(data: $0, encoding: .utf8) }
-        remember(
-          DirectoryEntry(
-            sourceHash: sourceHash, displayName: name,
-            trustLevel: .trusted, hostsNode: true))
-      }
-    }
   }
 
   /// Record an LXMF peer announce.
   ///
-  /// Python: `Directory.lxmf_announce_received(…)`.
+  /// Python: `Directory.lxmf_announce_received(…)`. An announce without app data is ignored.
   public func peerAnnounceReceived(sourceHash: Data, appData: Data?) {
+    guard appData != nil else { return }
     let record = AnnounceRecord(
       timestamp: Date(),
       sourceHash: sourceHash,
@@ -367,7 +377,16 @@ public class NNDirectory {
       ])
       entryList.append(entry)
     }
-    let root = MsgPack.Value.map([(.string("entry_list"), .array(entryList))])
+    // Python packs each announce as the tuple (timestamp, source_hash, app_data, kind).
+    let stream: [MsgPack.Value] = announceStream.map {
+      .array([
+        .double($0.timestamp.timeIntervalSince1970), .bytes($0.sourceHash),
+        $0.appData.map { .bytes($0) } ?? .nil, .string($0.kind),
+      ])
+    }
+    let root = MsgPack.Value.map([
+      (.string("entry_list"), .array(entryList)), (.string("announce_stream"), .array(stream)),
+    ])
     let data = MsgPack.encode(root)
     try data.write(to: url)
   }
@@ -382,6 +401,32 @@ public class NNDirectory {
     let value = try MsgPack.decode(data)
     guard case .map(let pairs) = value else { return }
 
+    for (k, v) in pairs {
+      guard case .string("announce_stream") = k, case .array(let stream) = v else { continue }
+      let records: [AnnounceRecord] = stream.compactMap {
+        guard case .array(let a) = $0, a.count >= 4, case .bytes(let hash) = a[1],
+          case .string(let kind) = a[3]
+        else { return nil }
+        let ts: Double
+        switch a[0] {
+        case .double(let d): ts = d
+        case .int(let i): ts = Double(i)
+        case .uint(let u): ts = Double(u)
+        default: return nil
+        }
+        let appData: Data? = {
+          guard case .bytes(let d) = a[2] else { return nil }
+          return d
+        }()
+        return AnnounceRecord(
+          timestamp: Date(timeIntervalSince1970: ts), sourceHash: hash, appData: appData,
+          kind: kind)
+      }
+      nodeAnnounces = records.filter { $0.kind == "node" }
+      peerAnnounces = records.filter { $0.kind == "peer" }
+      pnAnnounces = records.filter { $0.kind == "pn" }
+    }
+
     // Find "entry_list" key
     for (k, v) in pairs {
       guard case .string(let key) = k, key == "entry_list",
@@ -394,9 +439,9 @@ public class NNDirectory {
           case .bytes(let hash) = arr[0]
         else { continue }
 
-        let displayName: String? = {
+        let displayName: String = {
           if case .string(let s) = arr[1] { return s }
-          return nil
+          return "Undefined"  // Python: if e[1] == None: e[1] = "Undefined"
         }()
 
         let trust: DirectoryEntry.TrustLevel = {
@@ -435,8 +480,12 @@ public class NNDirectory {
         let sortRank: Int? =
           arr.count > 6
           ? {
-            if case .int(let i) = arr[6] { return Int(i) }
-            return nil
+            // msgpack writes a non-negative rank as an unsigned int.
+            switch arr[6] {
+            case .int(let i): return Int(exactly: i)
+            case .uint(let u): return Int(exactly: u)
+            default: return nil
+            }
           }() : nil
 
         let notes: String =

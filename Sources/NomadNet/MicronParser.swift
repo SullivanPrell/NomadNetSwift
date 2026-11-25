@@ -96,6 +96,11 @@ private struct ParseState {
   // heading row itself, so no separate `.anchor` marker node is emitted.
   var pendingAnchors: [(name: String, headingSlug: Bool)] = []
 
+  // `#!fold` glyphs, and a collapsible heading's initial state waiting for its row
+  // (MicronParser.py "fold_glyphs", "_collapsible_pending").
+  var foldGlyphs: (open: String, closed: String) = ("▾", "▸")
+  var collapsiblePending: Bool? = nil
+
   func currentStyle() -> MicronStyle {
     MicronStyle(
       bold: bold,
@@ -146,17 +151,36 @@ public struct MicronPage: Equatable {
   /// Page-wide default background from a `#!bg=` directive, if present and valid.
   public let backgroundColor: MicronColor?
 
+  /// Whether each collapsible heading starts collapsed, by its index into `nodes`.
+  ///
+  /// `` `-> `` starts collapsed and `` `+> `` open. Python: `attrmaps.collapsibles`.
+  /// A collapsed heading hides the rows after it up to the next heading at its depth or
+  /// shallower.
+  public let collapsibles: [Int: Bool]
+
+  /// Glyph shown before an open collapsible heading (`#!fold`, default `▾`).
+  public let foldOpenGlyph: String
+
+  /// Glyph shown before a collapsed heading (`#!fold`, default `▸`).
+  public let foldClosedGlyph: String
+
   /// Creates a page from its parsed nodes.
   public init(
     nodes: [MicronNode],
     anchors: [String: Int] = [:],
     foregroundColor: MicronColor? = nil,
-    backgroundColor: MicronColor? = nil
+    backgroundColor: MicronColor? = nil,
+    collapsibles: [Int: Bool] = [:],
+    foldOpenGlyph: String = "▾",
+    foldClosedGlyph: String = "▸"
   ) {
     self.nodes = nodes
     self.anchors = anchors
     self.foregroundColor = foregroundColor
     self.backgroundColor = backgroundColor
+    self.collapsibles = collapsibles
+    self.foldOpenGlyph = foldOpenGlyph
+    self.foldClosedGlyph = foldClosedGlyph
   }
 }
 
@@ -203,6 +227,7 @@ public struct MicronParser {
 
     var nodes: [MicronNode] = []
     var anchors: [String: Int] = [:]
+    var collapsibles: [Int: Bool] = [:]
 
     // markup_to_attrmaps strips control and zero-width characters, then splits on the "\n"
     // code point (MicronParser.py:107, :117), so a "\r\n" ending leaves "\r" on the line.
@@ -240,6 +265,10 @@ public struct MicronParser {
         state.pendingAnchors = []
       }
 
+      if let collapsed = state.collapsiblePending {
+        collapsibles[nodes.count] = collapsed
+        state.collapsiblePending = nil
+      }
       nodes.append(contentsOf: produced)
     }
 
@@ -259,7 +288,10 @@ public struct MicronParser {
       nodes: nodes,
       anchors: anchors,
       foregroundColor: pageFg,
-      backgroundColor: pageBg
+      backgroundColor: pageBg,
+      collapsibles: collapsibles,
+      foldOpenGlyph: state.foldGlyphs.open,
+      foldClosedGlyph: state.foldGlyphs.closed
     )
   }
 
@@ -305,7 +337,8 @@ public struct MicronParser {
   ///
   /// Returns zero or more nodes to append to the output.
   private static func parseLine(_ line: [Unicode.Scalar], state: inout ParseState) -> [MicronNode] {
-    guard let first = line.first else { return [] }
+    guard var first = line.first else { return [] }
+    var line = line
 
     // ── Literal mode ────────────────────────────────────────────────────
     // The literal toggle `` `= `` works in *and* out of literal mode.
@@ -321,8 +354,22 @@ public struct MicronParser {
       return [.line([span], depth: state.depth, alignment: state.alignment)]
     }
 
-    // ── Comment ─────────────────────────────────────────────────────────
-    if first == "#" { return [] }
+    // ── Collapsible heading `` `+> `` / `` `-> `` (MicronParser.py:488-494) ──
+    var collapsed: Bool? = nil
+    if line.count > 2, line[0] == "`", line[1] == "+" || line[1] == "-", line[2] == ">" {
+      collapsed = line[1] == "-"
+      line.removeFirst(2)
+      first = ">"
+    }
+
+    // ── Comment, and the `#!fold` directive (MicronParser.py:508-513) ──────
+    if first == "#" {
+      let parts = String(codePoints: line).split(whereSeparator: \.isWhitespace).map(String.init)
+      if parts.first == "#!fold", parts.count >= 2 {
+        state.foldGlyphs = (parts[1], parts.count >= 3 ? parts[2] : parts[1])
+      }
+      return []
+    }
 
     // ── Escape prefix ───────────────────────────────────────────────────
     // A leading `\` strips the backslash and passes the rest through with
@@ -398,6 +445,12 @@ public struct MicronParser {
       return []
     }
 
+    // ── Image `` `( `` ─────────────────────────────────────────────────────
+    if work.starts(with: "`(".unicodeScalars) {
+      guard let image = parseImage(Array(work.dropFirst(2))) else { return [] }
+      return [.image(image, depth: state.depth)]
+    }
+
     // ── Section reset `<` ────────────────────────────────────────────────
     if !preEscape && workFirst == "<" {
       state.depth = 0
@@ -417,6 +470,7 @@ public struct MicronParser {
       let slug = slugify(String(codePoints: content))
       if !slug.isEmpty { state.pendingAnchors.append((name: slug, headingSlug: true)) }
       guard !spans.isEmpty else { return [] }
+      if let collapsed { state.collapsiblePending = collapsed }
       return [.heading(level: level, spans: spans, depth: level, slug: slug)]
     }
 
@@ -575,7 +629,7 @@ public struct MicronParser {
           // Link: `[label`url`fields]
           flushPart()
           if let (link, skip) = parseLink(line: line, afterBracket: i + 1, state: state) {
-            output.append(.link(link))
+            if let link { output.append(.link(link)) }
             i += skip
             mode = .text
             i += 1
@@ -652,14 +706,47 @@ public struct MicronParser {
     return MicronPartial(url: url, refreshInterval: refresh, fields: fields)
   }
 
+  /// Parse an image after the opening `` `( ``: `alt\`key=value\`…\`url)`.
+  ///
+  /// Python: `parse_image` (MicronParser.py:221-283), which drops a line with no `)` past
+  /// its start or with no backtick.
+  private static func parseImage(_ s: [Unicode.Scalar]) -> MicronImage? {
+    guard let end = s.lastIndex(of: ")"), end > 0 else { return nil }
+    let fields = split(s[..<end], on: "`").map {
+      String(codePoints: $0).trimmingCharacters(in: .whitespaces)
+    }
+    guard fields.count >= 2 else { return nil }
+    var image = MicronImage(altText: fields[0], url: fields[fields.count - 1])
+    for prop in fields.dropFirst().dropLast() {
+      guard let eq = prop.firstIndex(of: "=") else { continue }
+      let key = prop[..<eq].trimmingCharacters(in: .whitespaces)
+      let value = prop[prop.index(after: eq)...].trimmingCharacters(in: .whitespaces)
+      switch key {
+      case "w": image.width = value
+      case "h": image.height = value
+      case "a":
+        image.alignment =
+          [
+            "c": .center, "center": .center, "l": .left, "left": .left, "r": .right,
+            "right": .right,
+          ][
+            value]
+      default: break
+      }
+    }
+    return image
+  }
+
   /// Parse a link after the opening `[`.
   ///
-  /// Format: `label\`url\`fields]`—returns (link, charactersConsumed).
+  /// Format: `label\`url\`fields]`—returns (link, charactersConsumed). The link is `nil`
+  /// when the markup has an empty URL or more than three parts, which Python consumes
+  /// without output (MicronParser.py:1056-1074).
   private static func parseLink(
     line: [Unicode.Scalar],
     afterBracket: Int,
     state: ParseState
-  ) -> (MicronLink, Int)? {
+  ) -> (MicronLink?, Int)? {
     // Find the closing `]`
     guard let end = find("]", in: line, from: afterBracket) else { return nil }
 
@@ -676,17 +763,18 @@ public struct MicronParser {
     case 2:
       label = String(codePoints: components[0])
       url = String(codePoints: components[1])
-    case 3...:
+    case 3:
       label = String(codePoints: components[0])
       url = String(codePoints: components[1])
       fields = fieldList(components[2])
     default:
-      return nil
+      label = ""
+      url = ""
     }
 
-    guard !url.isEmpty else { return nil }
-    let displayLabel = label.isEmpty ? url : label
     let consumed = end - afterBracket + 1  // +1 for ]
+    guard !url.isEmpty else { return (nil, consumed) }
+    let displayLabel = label.isEmpty ? url : label
 
     let link = MicronLink(
       label: displayLabel,
@@ -720,6 +808,7 @@ public struct MicronParser {
     var name: String
     var value = ""
     var width = 24
+    var rows = 1
     var masked = false
     var prechecked = false
 
@@ -742,8 +831,13 @@ public struct MicronParser {
         masked = true
       }
 
-      if !flags.isEmpty, let w = Int(String(codePoints: flags)) {
-        width = min(w, 256)
+      // `WxR`: width, then rows of a multi-line field (MicronParser.py:984-994).
+      if !flags.isEmpty {
+        let x = flags.firstIndex(of: "x") ?? flags.endIndex  // str.partition("x")
+        if let w = Int(String(codePoints: flags[..<x])) { width = min(w, 256) }
+        if x < flags.endIndex, let r = Int(String(codePoints: flags[(x + 1)...])) {
+          rows = max(1, min(r, 256))
+        }
       }
     } else {
       name = String(codePoints: fieldContent)
@@ -762,6 +856,7 @@ public struct MicronParser {
       value: dataValue,
       label: label,
       width: width,
+      rows: rows,
       prechecked: prechecked,
       style: state.currentStyle()
     )

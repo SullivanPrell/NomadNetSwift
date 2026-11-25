@@ -92,7 +92,8 @@ final class RRCResourceReceiveTests: XCTestCase {
 
   func testResourceConcludedWhoNoticeUpdatesMembers() {
     let (h, _) = makeHub(rooms: ["lobby"])
-    let text = "members in lobby: alice (abcdef012345), 1234567890abcdef1234567890abcdef"
+    // NomadNet 1.4.3 matches a 64-hex un-nicked member (`RRC.py:121`).
+    let text = "members in lobby: alice (abcdef012345), \(String(repeating: "12", count: 32))"
     let payload = Data(text.utf8)
     storeExpectation(
       h, rid: Data([2]), kind: RRC.ResKind.notice, size: payload.count, room: "lobby")
