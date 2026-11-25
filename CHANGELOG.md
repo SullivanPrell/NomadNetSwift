@@ -5,10 +5,13 @@ All notable changes to NomadNetSwift are documented here. This project follows
 
 ## [Unreleased]
 
+## [1.6.0]—RRC on low-MTU links, three Micron features, and NNDirectory parity
+
 ### Source-breaking
 
 - `MicronNode` has a new `.image(MicronImage, depth:)` case. A `switch` over `MicronNode`
-  with no `default` arm needs one for it. RetiOS's `MicronView` has such a switch.
+  with no `default` arm needs one for it. RetiOS's `MicronView` and reticulum-interop's
+  `MicronTestNode` have such a switch.
 
 ### NomadNet parity
 
@@ -35,6 +38,8 @@ All notable changes to NomadNetSwift are documented here. This project follows
     NomadNet 1.3.0. `MicronPage.collapsibles` maps each collapsible heading's node index to
     its initial state, and `foldOpenGlyph` and `foldClosedGlyph` hold the glyphs.
   - **Inline images** (`` `( ``), from NomadNet 1.4.0, as `MicronNode.image`.
+    A line starting with `` `( `` that isn't a valid image now gives no output, as in
+    Python. Before, it showed as text.
   - **Multi-row fields** (`` `<30x5|name`> ``), from NomadNet 1.3.0, as `MicronField.rows`.
 - Micron link parsing now matches Python in two cases (`MicronParser.py:1056-1074`):
   - **More than three parts:** the link is consumed and gives no output.
