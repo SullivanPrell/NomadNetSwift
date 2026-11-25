@@ -336,3 +336,93 @@ final class NNDirectoryPersistenceTests: XCTestCase {
     XCTAssertTrue(dir.directoryEntries.isEmpty)
   }
 }
+
+// MARK: - Parity with Python Directory.py
+
+final class NNDirectoryParityTests: XCTestCase {
+
+  private func h(_ b: UInt8) -> Data { Data(repeating: b, count: 16) }
+
+  private func tempURL() -> URL {
+    let url = FileManager.default.temporaryDirectory
+      .appendingPathComponent("nndir_\(UUID().uuidString).bin")
+    addTeardownBlock { try? FileManager.default.removeItem(at: url) }
+    return url
+  }
+
+  /// `save_to_disk` packs `sort_rank`; msgpack writes a non-negative rank as an unsigned int.
+  func testSortRankSurvivesSaveAndLoad() throws {
+    let url = tempURL()
+    let dir = NNDirectory()
+    dir.remember(DirectoryEntry(sourceHash: h(1), displayName: "A", sortRank: 5))
+    dir.remember(DirectoryEntry(sourceHash: h(2), displayName: "B", sortRank: -1))
+    try dir.save(to: url)
+    let loaded = NNDirectory()
+    try loaded.load(from: url)
+    XCTAssertEqual(loaded.find(h(1))?.sortRank, 5)
+    XCTAssertEqual(loaded.find(h(2))?.sortRank, -1)
+  }
+
+  /// `load_from_disk`: a nil display name loads as "Undefined".
+  func testNilNameLoadsAsUndefined() throws {
+    let url = tempURL()
+    let dir = NNDirectory()
+    dir.remember(DirectoryEntry(sourceHash: h(1), displayName: nil))
+    try dir.save(to: url)
+    let loaded = NNDirectory()
+    try loaded.load(from: url)
+    XCTAssertEqual(loaded.find(h(1))?.displayName, "Undefined")
+  }
+
+  /// `save_to_disk` writes `announce_stream`, and `load_from_disk` splits it by kind.
+  func testAnnounceStreamSurvivesSaveAndLoad() throws {
+    let url = tempURL()
+    let dir = NNDirectory()
+    dir.nodeAnnounceReceived(sourceHash: h(1), appData: Data("node".utf8), associatedPeer: nil)
+    dir.peerAnnounceReceived(sourceHash: h(2), appData: Data("peer".utf8))
+    dir.pnAnnounceReceived(
+      sourceHash: h(3), appData: nil, associatedPeer: nil, associatedNode: nil)
+    try dir.save(to: url)
+    let loaded = NNDirectory()
+    try loaded.load(from: url)
+    XCTAssertEqual(loaded.nodeAnnounces.map(\.sourceHash), [h(1)])
+    XCTAssertEqual(loaded.peerAnnounces.map(\.appData), [Data("peer".utf8)])
+    XCTAssertEqual(loaded.pnAnnounces.map(\.kind), ["pn"])
+    XCTAssertEqual(
+      loaded.nodeAnnounces[0].timestamp.timeIntervalSince1970,
+      dir.nodeAnnounces[0].timestamp.timeIntervalSince1970, accuracy: 0.001)
+  }
+
+  /// `lxmf_announce_received` / `node_announce_received` ignore an announce with no app data.
+  func testAnnounceWithoutAppDataIsIgnored() {
+    let dir = NNDirectory()
+    dir.nodeAnnounceReceived(sourceHash: h(1), appData: nil, associatedPeer: nil)
+    dir.peerAnnounceReceived(sourceHash: h(2), appData: nil)
+    XCTAssertTrue(dir.announceStream.isEmpty)
+  }
+
+  /// The auto-remember block is commented out in `node_announce_received`.
+  func testTrustedPeersNodeIsNotAutoRemembered() {
+    let dir = NNDirectory()
+    dir.remember(DirectoryEntry(sourceHash: h(1), displayName: "peer", trustLevel: .trusted))
+    dir.nodeAnnounceReceived(sourceHash: h(2), appData: Data("node".utf8), associatedPeer: h(1))
+    XCTAssertNil(dir.find(h(2)))
+  }
+
+  /// `known_nodes` sorts an unranked node at `2^32`, which is XOR in Python: 34.
+  func testKnownNodesRanksUnrankedAtThirtyFour() {
+    let dir = NNDirectory()
+    dir.remember(DirectoryEntry(sourceHash: h(1), displayName: "A", hostsNode: true, sortRank: 100))
+    dir.remember(DirectoryEntry(sourceHash: h(2), displayName: "B", hostsNode: true))
+    dir.remember(DirectoryEntry(sourceHash: h(3), displayName: "C", hostsNode: true, sortRank: 10))
+    XCTAssertEqual(dir.knownNodes().map(\.displayName), ["C", "B", "A"])
+  }
+
+  /// `known_nodes` sorts a nil name as `"_"`, after upper-case names.
+  func testKnownNodesSortsNilNameAsUnderscore() {
+    let dir = NNDirectory()
+    dir.remember(DirectoryEntry(sourceHash: h(1), displayName: nil, hostsNode: true))
+    dir.remember(DirectoryEntry(sourceHash: h(2), displayName: "Alpha", hostsNode: true))
+    XCTAssertEqual(dir.knownNodes().map(\.displayName), ["Alpha", nil])
+  }
+}

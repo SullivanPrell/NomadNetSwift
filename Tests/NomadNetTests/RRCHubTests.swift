@@ -831,7 +831,7 @@ final class RRCHubOutboundTests: XCTestCase {
 
 final class RRCHubParseNoticeTests: XCTestCase {
   func testParseWhoNoticeBasic() {
-    let text = "members in lobby: alice (abcdef012345), 1234567890abcdef1234567890abcdef"
+    let text = "members in lobby: alice (abcdef012345), \(String(repeating: "12", count: 32))"
     let r = RRCHub.parseWhoNotice(text)
     XCTAssertNotNil(r)
     XCTAssertEqual(r?.room, "lobby")

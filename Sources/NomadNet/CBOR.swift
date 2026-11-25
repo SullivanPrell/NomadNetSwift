@@ -254,6 +254,16 @@ public enum CBOR {
   /// Used by history loading, where each log entry is an independently encoded CBOR item
   /// appended to a flat file (same layout as Python `cbor.encode` / `cbor.load` streams).
   public static func decodeAll(_ data: Data) throws -> [Value] {
+    let decoded = decodeValidPrefix(data)
+    if let error = decoded.error { throw error }
+    return decoded.values
+  }
+
+  /// Decodes concatenated items up to the first one that fails, and returns that failure.
+  ///
+  /// Mirrors NomadNet's history reader, which keeps the records before a cut-off one
+  /// (`RRC.py:776-799`).
+  public static func decodeValidPrefix(_ data: Data) -> (values: [Value], error: Error?) {
     var results: [Value] = []
     var cursor = data.startIndex
     while cursor < data.endIndex {
@@ -262,10 +272,11 @@ public enum CBOR {
         cursor = data.index(after: cursor)
       }
       if cursor >= data.endIndex { break }
-      let value = try decode(data: data, cursor: &cursor)
-      results.append(value)
+      do { results.append(try decode(data: data, cursor: &cursor)) } catch {
+        return (results, error)
+      }
     }
-    return results
+    return (results, nil)
   }
 
   private static func readUInt(info: UInt8, data: Data, cursor: inout Data.Index) throws -> UInt64 {

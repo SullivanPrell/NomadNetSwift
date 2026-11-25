@@ -5,8 +5,66 @@ All notable changes to NomadNetSwift are documented here. This project follows
 
 ## [Unreleased]
 
+### Source-breaking
+
+- `MicronNode` has a new `.image(MicronImage, depth:)` case. A `switch` over `MicronNode`
+  with no `default` arm needs one for it. RetiOS's `MicronView` has such a switch.
+
+### NomadNet parity
+
+- RRC handles `/list` and `/who` replies on low-MTU links as NomadNet 1.4.3 does (commit
+  652a625). Python's 1.4.3 change was never ported, although this package claimed 1.4.4
+  parity:
+  - A `/list` reply that arrives one line per packet is merged into `availableRooms` for 60 s
+    after its header (`LIST_FRAGMENT_WINDOW`).
+  - A `/who` reply matches a 64-hex un-nicked member, not a 32-hex one.
+  - A nicked member whose full hash is unknown is kept by its 12-hex prefix. `getMembers`
+    lists it until room traffic or a `JOINED` reveals the full hash.
+  - A room-less `/list` or `/who` reply no longer becomes the MOTD, and no longer goes to the
+    notice log.
+- RRC strips modifier and bidi characters with `strip_modifiers` from:
+  - message text (`RRC.py:206`);
+  - the hub name (`:1006`);
+  - room names and topics (`:890`);
+  - the MOTD (`:1263`, `:1402`).
+
+  Before this, a U+202E in a message reversed the text that followed it.
+- An RRC hub's default name is `RNSUtilities.prettyhexrep(hash)`, as in `RRC.py:224`.
+- Micron gains three features:
+  - **Collapsible headings** (`` `+> `` and `` `-> ``) and the `#!fold` directive, from
+    NomadNet 1.3.0. `MicronPage.collapsibles` maps each collapsible heading's node index to
+    its initial state, and `foldOpenGlyph` and `foldClosedGlyph` hold the glyphs.
+  - **Inline images** (`` `( ``), from NomadNet 1.4.0, as `MicronNode.image`.
+  - **Multi-row fields** (`` `<30x5|name`> ``), from NomadNet 1.3.0, as `MicronField.rows`.
+- Micron link parsing now matches Python in two cases (`MicronParser.py:1056-1074`):
+  - **More than three parts:** the link is consumed and gives no output.
+  - **Empty URL:** the link is consumed and gives no output. Before, it showed as text.
+- `NNDirectory` now matches Python's `Directory.py`:
+  - It ignores a node or peer announce that has no app data.
+  - It no longer adds a trusted entry for a trusted peer's node. Python has that code
+    commented out.
+  - It saves and loads `announce_stream`.
+  - It loads a missing name as `"Undefined"`.
+  - `remember` copies a peer's trust to the node its identity hosts.
+  - `knownNodes` sorts like Python: an unranked node at Python's `2^32`, which is 34, and a
+    missing name as `"_"`.
+
 ### Fixed
 
+- An RRC hub that never answered HELLO hung its thread for good. On WELCOME timeout the hub
+  tore its link down while holding its own lock. Teardown runs `onClosed`, which waits for
+  that same lock. The link is now torn down outside the lock.
+- An RRC hub under a custom destination name could never connect. The client built the
+  destination as `rrc.hub` whatever `destName` said, so the hash check always failed.
+- A failed link identify tears the RRC link down, as `RRC.py:449-454` does. Before, the
+  client sent HELLO unidentified and ended in a WELCOME timeout.
+- A history file whose last record was cut off loaded as empty, losing the whole room.
+  `loadHistory` keeps every record before the bad one (`RRC.py:776-799`), through the new
+  `CBOR.decodeValidPrefix`.
+- A full disk no longer crashes the app while it appends RRC history. The append used
+  `FileHandle.write(_:)`, which raises an Objective-C exception that `catch` can't handle.
+- `NNDirectory` lost every sort rank on load: msgpack writes a non-negative rank as an
+  unsigned int, and `load` read only signed ones.
 - A data race on `RRCHub` state. The hub wrote its status, rooms, unread and mention sets,
   notices, MOTD and hub limits under its lock on network threads, while an app read the public
   properties bare. Each public property now takes the lock. Under ThreadSanitizer, the new
@@ -15,6 +73,14 @@ All notable changes to NomadNetSwift are documented here. This project follows
 - `RRCManager.hasUnread` no longer reads hub state while it holds the manager's lock. A hub
   calls into the manager while it holds its own lock, so reading in the opposite order could
   deadlock.
+
+### Deprecated
+
+- `NomadNetBrowser.encode(fields:variables:)` and `encodeFields(_:)`. Passing their `Data` to
+  `Link.request(data:)` double-packs it (bugs/008). Use `encodeValue(fields:variables:)`.
+- `NNDirectory.addNodeAnnounce`, `addPeerAnnounce` and `addPNAnnounce`. They had no callers
+  and no Python counterpart. Use the `*AnnounceReceived` methods.
+
 
 ## [1.5.2]—NomadNet 1.5.1: a custom RRC hub name is a wanted type
 
