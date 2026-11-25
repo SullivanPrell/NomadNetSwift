@@ -25,6 +25,8 @@ the path:
         ../../reticulum-interop/.venv/bin/python scripts/micron-reference-vectors.py
 """
 import inspect
+import math
+import os
 import re
 import sys
 import textwrap
@@ -100,6 +102,132 @@ PARSE_PAGE_VECTORS = [
     "`!\uff9ex",
     ">\uff9eT",
 ]
+
+# Vectors for NN-01, one group per commit.
+#
+# Paste a group into PARSE_PAGE_VECTORS in scripts/micron-reference-vectors.py when you
+# reach its commit. Each vector parses through markup_to_attrmaps with no browser step.
+# Non-ASCII characters are \N{NAME} escapes, so this file stays ASCII; keep it that way.
+#
+# Each comment names the vector, the row of the original report ("chip N") when it has one,
+# and "red" when the vector fails on NomadNetSwift 913c58b. The others pass there and pin
+# behavior that must survive the fix.
+
+# A color is read one code point at a time, as int(c, 16) and int(c) read it.
+COLORS = [
+    "`F\N{ARABIC-INDIC DIGIT ONE}\N{ARABIC-INDIC DIGIT TWO}\N{ARABIC-INDIC DIGIT THREE}x",  # arabic-indic color digits, chip 12, red
+    "`FT+5aabbx",  # signed six-digit color, red
+    "`Fg+5x",  # signed grey, red
+    "`Fg\N{ARABIC-INDIC DIGIT FIVE}\N{ARABIC-INDIC DIGIT ZERO}x",  # arabic-indic grey, red
+    "`FT\N{ARABIC-INDIC DIGIT FIVE}\N{ARABIC-INDIC DIGIT ZERO}\N{ARABIC-INDIC DIGIT FIVE}\N{ARABIC-INDIC DIGIT ZERO}\N{ARABIC-INDIC DIGIT FIVE}\N{ARABIC-INDIC DIGIT ZERO}x",  # arabic-indic six-digit color, red
+    "`B\N{ARABIC-INDIC DIGIT ONE}\N{ARABIC-INDIC DIGIT TWO}\N{ARABIC-INDIC DIGIT THREE}x",  # arabic-indic background, red
+    "`F+5ax",  # control: signed three-digit color, passes today
+    "`Fg50x",  # control: grey, passes today
+    "`FT5aabbcx",  # control: six-digit color, passes today
+]
+
+# A table needs two rows and a closing `t, and its width is int(line).
+TABLES = [
+    "`t\n|a|\n|1|",  # unclosed table at end of page, chip 9, red
+    "`t\n|a|\n`t",  # one-row table, chip 10, red
+    "`t\N{FULLWIDTH DIGIT FIVE}\N{FULLWIDTH DIGIT ZERO}\n|a|\n|1|\n`t",  # fullwidth table width, chip 11, red
+    "`t 50\n|a|\n|1|\n`t",  # padded table width, red
+    "`t5_0\n|a|\n|1|\n`t",  # underscore table width, red
+    "`t\n`t",  # empty table, red
+    "`tc50\n|a|\n|1|\n`t",  # control: aligned width, passes today
+    "`t50\n|a|\n|1|\n`t",  # control: plain width, passes today
+    "`t50\r\n|a|\r\n|1|\r\n`t",  # table width on a CRLF page, red
+]
+
+# A link's or partial's field list keeps its empty names.
+FIELD_LISTS = [
+    "`{p`5`a||b}",  # partial with an interior empty field, red
+    "`{p`5`a|}",  # partial with a trailing empty field, red
+    "`{p}",  # control: partial without fields, passes today
+    "`[l`u`a||b]x",  # link with an interior empty field, red
+    "`[l`u`a|]x",  # link with a trailing empty field, red
+    "`[l`u`|]x",  # link with only a bar, red
+    "`[l`u`]x",  # control: link with an empty field list, passes today
+]
+
+# A partial needs a float() refresh and at most three components.
+PARTIALS = [
+    "`{p`x}",  # partial with a failed float, chip 2, red
+    "`{p`5`a`b}",  # partial with four components, chip 3, red
+    "`{p``a}",  # empty refresh component, red
+    "`{p`0x10}",  # hex refresh, red
+    "`{p` 5 }",  # padded refresh, red
+    "`{p`1_0}",  # underscore refresh, red
+    "`{p`\N{ARABIC-INDIC DIGIT FIVE}}",  # arabic-indic refresh, red
+    "`{p`0x1p3}",  # hex float refresh, red
+    "`{p`nan(1)}",  # nan with payload, red
+    "`{p`0.5}",  # control: fraction below one, passes today
+    "`{p`-5}",  # control: negative, passes today
+    "`{p`+5}",  # control: plus sign, passes today
+    "`{p`5.}",  # control: trailing dot, passes today
+    "`{p`1e1}",  # control: exponent, passes today
+    "`{p`inf}",  # control: inf, passes today
+    "`{p`nan}",  # control: nan, passes today
+    "`{p`INFINITY}",  # control: INFINITY, passes today
+]
+
+# A link with four components or an empty URL is skipped whole.
+LINKS = [
+    "`[a`b`c`d]x",  # link with four components, chip 4, red
+    "`[l`]x",  # link with an empty url, chip 5, red
+]
+
+# A text field's flags are width, then x, then rows, each read with int().
+FIELDS = [
+    "`<10x3|n`v>",  # field with a rows flag, chip 6, red
+    "`<10x|n`v>",  # width with an empty rows flag, red
+    "`< 10|n`v>",  # padded width, red
+    "`<300|n`v>",  # control: width clamps to 256, passes today
+    "`<x3|n`v>",  # rows without a width, red
+    "`<10x999|n`v>",  # rows clamp to 256, red
+    "`<10x0|n`v>",  # rows clamp to 1, red
+    "`<10x-3|n`v>",  # negative rows, red
+    "`<10xq|n`v>",  # invalid rows, red
+    "`<qx3|n`v>",  # invalid width, valid rows, red
+    "`<q|n`v>",  # control: invalid width, passes today
+    "`<?10|n`v>",  # checkbox keeps the default width, red
+    "`<^10x3|n`v>",  # radio keeps the default width, passes today
+    "`<!10x3|n`v>",  # masked field takes width and rows, red
+]
+
+# A line with a field loses its leading > before the escape and comment checks.
+LINE_PREFIXES = [
+    ">#`<x`y>",  # comment prefix after the heading strip, chip 1, red
+    ">>#x`<n`v>",  # comment after a heading strip, red
+    ">\\`t`<n`v>",  # escape after a heading strip, red
+    ">\\x`<n`v>",  # control: escape then letter, passes today
+    ">-`<n`v>",  # control: rule prefix, passes today
+    "><`<n`v>",  # control: reset prefix, passes today
+]
+
+# A heading is made in the heading theme's style, and the page's style comes back.
+HEADINGS = [
+    ">`!T\nx",  # heading restores bold, chip 7, red
+    "`!a\n>T",  # heading ignores earlier bold, chip 8, red
+    "`!\n>T\n`!x",  # heading ignores earlier bold, later toggle, red
+    "`_a\n>T\nb",  # heading ignores earlier underline, red
+    ">`*T\nx",  # heading restores italic, red
+    "#!fg=f00\n#!bg=00f\n>T\nx",  # heading ignores the page colors, red
+]
+
+# A slug keeps ASCII letters and digits, and lowercases last.
+SLUGS = [
+    ">\N{KELVIN SIGN}",  # kelvin sign slug, chip 13, red
+    ">a`}b",  # closing brace is not a micron code, red
+    ">\N{LATIN CAPITAL LETTER I WITH DOT ABOVE}x",  # dotted capital I, red
+]
+
+ALL = COLORS + TABLES + FIELD_LISTS + PARTIALS + LINKS + FIELDS + LINE_PREFIXES + HEADINGS + SLUGS
+
+if __name__ == "__main__":
+    print(len(ALL), "vectors")
+
+PARSE_PAGE_VECTORS += COLORS + TABLES + FIELD_LISTS + PARTIALS + LINKS + FIELDS + LINE_PREFIXES + HEADINGS + SLUGS
 
 BROWSER_VECTORS = [
     "a\r\nb",
@@ -247,16 +375,17 @@ def swift_color(raw, theme_default, page_default):
         pass
     elif raw == theme_default:
         return ".default"
-    if raw == "default" or rendered_color(raw) == "default":
+    rendered = rendered_color(raw)
+    if raw == "default" or rendered == "default":
         return ".default"
-    if re.fullmatch(r"[0-9a-fA-F]{3}", raw):
-        r, g, b = (int(c, 16) for c in raw)
+    if rendered.startswith("g"):
+        return f".grey(percent: {int(rendered[1:])})"
+    if len(raw) == 3:
+        r, g, b = (int(rendered[i], 16) for i in (1, 3, 5))
         return f".rgb3(r: {r}, g: {g}, b: {b})"
-    if re.fullmatch(r"[0-9a-fA-F]{6}", raw):
-        r, g, b = (int(raw[i:i + 2], 16) for i in (0, 2, 4))
+    if len(raw) == 6:
+        r, g, b = (int(rendered[i:i + 2], 16) for i in (1, 3, 5))
         return f".rgb6(r: {r}, g: {g}, b: {b})"
-    if re.fullmatch(r"g[0-9]{2}", raw):
-        return f".grey(percent: {int(raw[1:])})"
     raise ValueError(f"no Swift color for {raw!r}")
 
 
@@ -269,7 +398,7 @@ class Context:
         fg, bg, bold, underline, italic = name
         theme_fg, theme_bg = DEFAULT_FG, "default"
         if heading is not None:
-            theme = MP.STYLES_DARK["heading" + str(heading)]
+            theme = MP.STYLES_DARK["heading" + str(min(heading, 3))]
             theme_fg, theme_bg = theme["fg"], theme["bg"]
         args = []
         if bold:
@@ -323,7 +452,7 @@ def column_segments(columns):
             else:
                 field_type = ".masked" if field._mask else ".text"
                 segments.append(("field", field_type, field.field_name, field.edit_text, "",
-                                 width, False, style))
+                                 width, False, style, field._min_rows))
         else:
             segments.extend(text_segments(widget))
     return segments
@@ -352,12 +481,22 @@ def swift_spans(segments, context, heading=None):
                          f"url: {swift_string(url)}, fields: {field_list}, "
                          f"style: {context.style(style)}))")
         else:
-            _, field_type, name, value, label, width, prechecked, style = segment
+            field_type, name, value, label, width, prechecked, style = segment[1:8]
+            rows = segment[8] if len(segment) > 8 else 1
+            rows_arg = f"rows: {rows}, " if rows != 1 else ""
             spans.append(f".field(MicronField(fieldType: {field_type}, name: {swift_string(name)}, "
                          f"value: {swift_string(value)}, label: {swift_string(label)}, "
-                         f"width: {width}, prechecked: {'true' if prechecked else 'false'}, "
+                         f"width: {width}, {rows_arg}prechecked: {'true' if prechecked else 'false'}, "
                          f"style: {context.style(style)}))")
     return "[" + ", ".join(spans) + "]"
+
+
+def swift_double(value):
+    if math.isinf(value):
+        return ".infinity"
+    if math.isnan(value):
+        return ".nan"
+    return repr(value)
 
 
 def swift_alignment(align):
@@ -384,10 +523,8 @@ def swift_rows(attrmaps, context):
         elif isinstance(widget, urwid.Divider):
             rows.append(f".horizontalRule(character: {swift_string(widget.div_char)})")
         elif isinstance(widget, urwid.Pile) and hasattr(widget, "partial_url"):
-            fields = widget.partial_fields
-            if "" in fields:
-                raise ValueError("an empty partial field has no Swift representation")
-            refresh = "nil" if widget.partial_refresh is None else repr(widget.partial_refresh)
+            fields = [] if widget.partial_fields == [""] else widget.partial_fields
+            refresh = "nil" if widget.partial_refresh is None else swift_double(widget.partial_refresh)
             field_list = "[" + ", ".join(swift_string(f) for f in fields) + "]"
             rows.append(f".partial(MicronPartial(url: {swift_string(widget.partial_url)}, "
                         f"refreshInterval: {refresh}, fields: {field_list}))")

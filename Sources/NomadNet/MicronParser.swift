@@ -272,15 +272,8 @@ public struct MicronParser {
       nodes.append(contentsOf: produced)
     }
 
-    // If still in table mode at EOF, flush the buffer
-    if state.tableMode, !state.tableBuffer.isEmpty {
-      nodes.append(
-        .table(
-          rows: state.tableBuffer.map { [$0] },
-          alignment: state.tableAlign,
-          maxWidth: state.tableMaxWidth
-        ))
-    }
+    // A table still open at the end of the page is dropped: Python renders a table only when
+    // the closing `t arrives (MicronParser.py:131-159, :516-531).
     // Anchors still pending at EOF are dropped, as in Python (they are
     // never bound at MicronParser.py:126-131 and stay absent from the map).
 
@@ -322,8 +315,8 @@ public struct MicronParser {
     else { return nil }
     let value = scalars[(found + directive.unicodeScalars.count)..<newline]
     switch value.count {
-    case 3: return parseColor3(String(codePoints: value))
-    case 6: return parseColor6(String(codePoints: value))
+    case 3: return parseColor3(value)
+    case 6: return parseColor6(value)
     default: return nil
     }
   }
@@ -362,6 +355,13 @@ public struct MicronParser {
       first = ">"
     }
 
+    // ── A line with a field loses its heading status, before the escape and comment checks
+    // (MicronParser.py:497-500) ──
+    if first == ">" && firstIndex(of: Array("`<".unicodeScalars), in: line) != nil {
+      line.removeFirst(line.prefix(while: { $0 == ">" }).count)
+      first = line[0]
+    }
+
     // ── Comment, and the `#!fold` directive (MicronParser.py:508-513) ──────
     if first == "#" {
       let parts = String(codePoints: line).split(whereSeparator: \.isWhitespace).map(String.init)
@@ -379,9 +379,6 @@ public struct MicronParser {
     if first == "\\" {
       workLine = line.dropFirst()
       preEscape = true
-    } else if first == ">" && firstIndex(of: Array("`<".unicodeScalars), in: line) != nil {
-      // Heading lines containing `< (field opening) lose their heading status
-      workLine = line.drop(while: { $0 == ">" })
     }
 
     let work = Array(workLine)
@@ -406,7 +403,7 @@ public struct MicronParser {
       default:
         break
       }
-      if !rest.isEmpty, let w = Int(String(codePoints: rest)) {
+      if !rest.isEmpty, let w = NomadNetUtil.pythonInt(rest) {
         maxWidth = w
       }
 
@@ -418,17 +415,21 @@ public struct MicronParser {
         return []
       }
       // Second `t  → flush buffer
-      let rows = state.tableBuffer.map { [$0] }
-      let node = MicronNode.table(
-        rows: rows,
-        alignment: state.tableAlign,
-        maxWidth: state.tableMaxWidth
-      )
+      // render_table returns nothing for fewer than two rows (MicronParser.py:291-292).
+      let produced: [MicronNode] =
+        state.tableBuffer.count < 2
+        ? []
+        : [
+          .table(
+            rows: state.tableBuffer.map { [$0] },
+            alignment: state.tableAlign,
+            maxWidth: state.tableMaxWidth)
+        ]
       state.tableMode = false
       state.tableBuffer = []
       state.tableAlign = nil
       state.tableMaxWidth = nil
-      return [node]
+      return produced
     }
 
     // ── Table buffering ──────────────────────────────────────────────────
@@ -464,7 +465,19 @@ public struct MicronParser {
       let content = Array(work.dropFirst(level))
       guard !content.isEmpty else { return [] }
 
+      // The heading is made with the heading theme's style, then the style the page had comes
+      // back (MicronParser.py:572-578). The theme sets no bold, underline or italic, and its
+      // colors belong to the renderer.
+      let latched = (
+        state.bold, state.underline, state.italic, state.fgColor, state.bgColor
+      )
+      state.bold = false
+      state.underline = false
+      state.italic = false
+      state.fgColor = .default
+      state.bgColor = .default
       let spans = makeOutput(line: content, state: &state, preEscape: false)
+      (state.bold, state.underline, state.italic, state.fgColor, state.bgColor) = latched
       // Heading slugs auto-register as anchors (MicronParser.py:308-310);
       // the slug stays pending even when the heading renders no output.
       let slug = slugify(String(codePoints: content))
@@ -538,15 +551,13 @@ public struct MicronParser {
         case "F":
           // `FT rrggbb  (6-digit) or `F rgb (3-digit)
           if i + 1 < line.count && line[i + 1] == "T" && i + 7 < line.count {
-            let hex = String(codePoints: line[(i + 2)..<(i + 8)])
-            state.fgColor = parseColor6(hex) ?? .default
+            state.fgColor = parseColor6(line[(i + 2)..<(i + 8)]) ?? .default
             i += 7
             mode = .text
             i += 1
             continue
           } else if i + 3 < line.count {
-            let hex = String(codePoints: line[(i + 1)..<(i + 4)])
-            state.fgColor = parseColor3(hex) ?? .default
+            state.fgColor = parseColor3(line[(i + 1)..<(i + 4)]) ?? .default
             i += 3
             mode = .text
             i += 1
@@ -559,15 +570,13 @@ public struct MicronParser {
         case "B":
           // `BT rrggbb  (6-digit) or `B rgb (3-digit)
           if i + 1 < line.count && line[i + 1] == "T" && i + 7 < line.count {
-            let hex = String(codePoints: line[(i + 2)..<(i + 8)])
-            state.bgColor = parseColor6(hex) ?? .default
+            state.bgColor = parseColor6(line[(i + 2)..<(i + 8)]) ?? .default
             i += 7
             mode = .text
             i += 1
             continue
           } else if i + 3 < line.count {
-            let hex = String(codePoints: line[(i + 1)..<(i + 4)])
-            state.bgColor = parseColor3(hex) ?? .default
+            state.bgColor = parseColor3(line[(i + 1)..<(i + 4)]) ?? .default
             i += 3
             mode = .text
             i += 1
@@ -681,20 +690,22 @@ public struct MicronParser {
     guard let endPos = s.firstIndex(of: "}") else { return nil }
     let components = split(s[..<endPos], on: "`")
 
-    let url: String
+    let url = String(codePoints: components[0])
     var refresh: Double? = nil
-    var fields: [String] = []
+    var fieldsComponent: ArraySlice<Unicode.Scalar> = []
 
+    // Python raises on a refresh that float() rejects, and the whole partial goes with it
+    // (MicronParser.py:188-192, :219). More than three components leave no URL (:194-197).
     switch components.count {
     case 1:
-      url = String(codePoints: components[0])
+      break
     case 2:
-      url = String(codePoints: components[0])
-      refresh = Double(String(codePoints: components[1]))
-    case 3...:
-      url = String(codePoints: components[0])
-      refresh = Double(String(codePoints: components[1]))
-      fields = fieldList(components[2])
+      guard let value = NomadNetUtil.pythonFloat(components[1]) else { return nil }
+      refresh = value
+    case 3:
+      guard let value = NomadNetUtil.pythonFloat(components[1]) else { return nil }
+      refresh = value
+      fieldsComponent = components[2]
     default:
       return nil
     }
@@ -703,7 +714,7 @@ public struct MicronParser {
     // Minimum refresh of 1 second (matches Python)
     if let r = refresh, r < 1 { refresh = nil }
 
-    return MicronPartial(url: url, refreshInterval: refresh, fields: fields)
+    return MicronPartial(url: url, refreshInterval: refresh, fields: fieldList(fieldsComponent))
   }
 
   /// Parse an image after the opening `` `( ``: `alt\`key=value\`…\`url)`.
@@ -831,11 +842,12 @@ public struct MicronParser {
         masked = true
       }
 
-      // `WxR`: width, then rows of a multi-line field (MicronParser.py:984-994).
-      if !flags.isEmpty {
+      // `WxR`: width, then rows of a multi-line field, read with int() and stored only on a
+      // text field (MicronParser.py:984-995).
+      if !flags.isEmpty, fieldType == .text || fieldType == .masked {
         let x = flags.firstIndex(of: "x") ?? flags.endIndex  // str.partition("x")
-        if let w = Int(String(codePoints: flags[..<x])) { width = min(w, 256) }
-        if x < flags.endIndex, let r = Int(String(codePoints: flags[(x + 1)...])) {
+        if let w = NomadNetUtil.pythonInt(flags[..<x]) { width = min(w, 256) }
+        if x < flags.endIndex, let r = NomadNetUtil.pythonInt(flags[(x + 1)...]) {
           rows = max(1, min(r, 256))
         }
       }
@@ -873,7 +885,7 @@ public struct MicronParser {
 
   /// The non-empty `|`-separated names in a link's or partial's field list.
   private static func fieldList(_ s: ArraySlice<Unicode.Scalar>) -> [String] {
-    s.split(separator: "|").map { String(codePoints: $0) }
+    s.isEmpty ? [] : split(s, on: "|").map { String(codePoints: $0) }
   }
 
   /// The index of the first `scalar` in `line` at or after `start`, as Python's `str.find`.
@@ -896,30 +908,42 @@ public struct MicronParser {
 
   /// Parse a 3-character hex color string ("rgb") into a `MicronColor`.
   static func parseColor3(_ hex: String) -> MicronColor? {
-    let h = Array(hex)
-    guard h.count == 3 else { return nil }
-    if h[0] == "g" {
-      // Greyscale: "g" + 2-digit decimal
-      guard let pct = UInt8(String(h[1...2])) else { return nil }
-      return .grey(percent: pct)
+    parseColor3(Array(hex.unicodeScalars)[...])
+  }
+
+  /// Parse 3 code points ("rgb" or "gNN") as Python's `high_color` reads them, one code point at
+  /// a time (MicronParser.py:796-845).
+  static func parseColor3(_ code: ArraySlice<Unicode.Scalar>) -> MicronColor? {
+    let c = Array(code)
+    guard c.count == 3 else { return nil }
+    if c[0] == "g" {
+      guard let tens = NomadNetUtil.pythonDecimalDigit(c[1]),
+        let ones = NomadNetUtil.pythonDecimalDigit(c[2])
+      else { return nil }
+      return .grey(percent: UInt8(tens * 10 + ones))
     }
-    guard let r = UInt8(String(h[0]), radix: 16),
-      let g = UInt8(String(h[1]), radix: 16),
-      let b = UInt8(String(h[2]), radix: 16)
+    guard let r = NomadNetUtil.pythonHexDigit(c[0]),
+      let g = NomadNetUtil.pythonHexDigit(c[1]),
+      let b = NomadNetUtil.pythonHexDigit(c[2])
     else { return nil }
-    return .rgb3(r: r, g: g, b: b)
+    return .rgb3(r: UInt8(r), g: UInt8(g), b: UInt8(b))
   }
 
   /// Parse a 6-character hex color string ("rrggbb") into a `MicronColor`.
   static func parseColor6(_ hex: String) -> MicronColor? {
-    guard hex.count == 6 else { return nil }
-    let s = hex
-    let idx = s.startIndex
-    guard let r = UInt8(s[idx..<s.index(idx, offsetBy: 2)], radix: 16),
-      let g = UInt8(s[s.index(idx, offsetBy: 2)..<s.index(idx, offsetBy: 4)], radix: 16),
-      let b = UInt8(s[s.index(idx, offsetBy: 4)..<s.index(idx, offsetBy: 6)], radix: 16)
-    else { return nil }
-    return .rgb6(r: r, g: g, b: b)
+    parseColor6(Array(hex.unicodeScalars)[...])
+  }
+
+  /// Parse 6 code points ("rrggbb") one code point at a time (MicronParser.py:796-845).
+  static func parseColor6(_ code: ArraySlice<Unicode.Scalar>) -> MicronColor? {
+    let c = Array(code)
+    guard c.count == 6 else { return nil }
+    let digits = c.compactMap { NomadNetUtil.pythonHexDigit($0) }
+    guard digits.count == 6 else { return nil }
+    return .rgb6(
+      r: UInt8(digits[0] * 16 + digits[1]),
+      g: UInt8(digits[2] * 16 + digits[3]),
+      b: UInt8(digits[4] * 16 + digits[5]))
   }
 
   // MARK: - Slug generation
@@ -928,15 +952,25 @@ public struct MicronParser {
   ///
   /// Mirrors `slugify_micron()` in the Python parser.
   public static func slugify(_ text: String) -> String {
-    // Strip formatting codes (backtick sequences)
-    let stripped = stripMicronCodes(text)
-    // Replace non-alphanumeric runs with hyphens
-    let slug =
-      stripped
-      .lowercased()
-      .replacingOccurrences(of: "[^a-z0-9]+", with: "-", options: .regularExpression)
-      .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
-    return slug
+    // re.sub(r"[^A-Za-z0-9]+", "-", stripped).strip("-").lower() (MicronParser.py:90-94):
+    // only ASCII letters and digits survive, and the lowercasing comes last.
+    var slug = String.UnicodeScalarView()
+    var gap = false
+    for scalar in stripMicronCodes(text).unicodeScalars {
+      switch scalar.value {
+      case 0x30...0x39, 0x61...0x7A:
+        if gap, !slug.isEmpty { slug.append("-") }
+        gap = false
+        slug.append(scalar)
+      case 0x41...0x5A:
+        if gap, !slug.isEmpty { slug.append("-") }
+        gap = false
+        slug.append(Unicode.Scalar(UInt8(scalar.value + 0x20)))
+      default:
+        gap = true
+      }
+    }
+    return String(slug)
   }
 
   /// Strip Micron inline formatting codes from a string (for plain-text uses like slugs).
@@ -949,7 +983,7 @@ public struct MicronParser {
     //   `:[A-Za-z0-9_\-]*
     //   `[!*_=fbacrl`<>{]
     let pattern =
-      "`[FB]T[0-9a-fA-F]{6}|`[FB][0-9a-fA-F]{3}|`:[A-Za-z0-9_\\-]*|`[!*_=fbacrl`<>\\{\\}]"
+      "`[FB]T[0-9a-fA-F]{6}|`[FB][0-9a-fA-F]{3}|`:[A-Za-z0-9_\\-]*|`[!*_=fbacrl`<>\\{]"
     guard let re = try? NSRegularExpression(pattern: pattern) else { return text }
     let range = NSRange(text.startIndex..., in: text)
     return re.stringByReplacingMatches(in: text, range: range, withTemplate: "")
