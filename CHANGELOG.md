@@ -7,6 +7,8 @@ All notable changes to NomadNetSwift are documented here. This project follows
 
 ### Source-breaking
 
+- `NNDirectory` and `DirectoryEntry` are removed. Nothing in the package or RetiOS used them;
+  RetiOS keeps its own node list. Python's `Directory.py` is no longer ported.
 - `MicronNode` has a new `.image(MicronImage, depth:)` case. A `switch` over `MicronNode`
   with no `default` arm needs one for it. RetiOS's `MicronView` has such a switch.
 
@@ -39,15 +41,6 @@ All notable changes to NomadNetSwift are documented here. This project follows
 - Micron link parsing now matches Python in two cases (`MicronParser.py:1056-1074`):
   - **More than three parts:** the link is consumed and gives no output.
   - **Empty URL:** the link is consumed and gives no output. Before, it showed as text.
-- `NNDirectory` now matches Python's `Directory.py`:
-  - It ignores a node or peer announce that has no app data.
-  - It no longer adds a trusted entry for a trusted peer's node. Python has that code
-    commented out.
-  - It saves and loads `announce_stream`.
-  - It loads a missing name as `"Undefined"`.
-  - `remember` copies a peer's trust to the node its identity hosts.
-  - `knownNodes` sorts like Python: an unranked node at Python's `2^32`, which is 34, and a
-    missing name as `"_"`.
 
 ### Fixed
 
@@ -63,8 +56,6 @@ All notable changes to NomadNetSwift are documented here. This project follows
   `CBOR.decodeValidPrefix`.
 - A full disk no longer crashes the app while it appends RRC history. The append used
   `FileHandle.write(_:)`, which raises an Objective-C exception that `catch` can't handle.
-- `NNDirectory` lost every sort rank on load: msgpack writes a non-negative rank as an
-  unsigned int, and `load` read only signed ones.
 - A data race on `RRCHub` state. The hub wrote its status, rooms, unread and mention sets,
   notices, MOTD and hub limits under its lock on network threads, while an app read the public
   properties bare. Each public property now takes the lock. Under ThreadSanitizer, the new
@@ -78,8 +69,6 @@ All notable changes to NomadNetSwift are documented here. This project follows
 
 - `NomadNetBrowser.encode(fields:variables:)` and `encodeFields(_:)`. Passing their `Data` to
   `Link.request(data:)` double-packs it (bugs/008). Use `encodeValue(fields:variables:)`.
-- `NNDirectory.addNodeAnnounce`, `addPeerAnnounce` and `addPNAnnounce`. They had no callers
-  and no Python counterpart. Use the `*AnnounceReceived` methods.
 
 
 ## [1.5.2]—NomadNet 1.5.1: a custom RRC hub name is a wanted type

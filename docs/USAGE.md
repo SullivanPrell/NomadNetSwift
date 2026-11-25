@@ -64,12 +64,10 @@ browser.goBack(); browser.goForward(); browser.reload()
 `NomadNetURL` parses the `<destination_hash>:<path>` address format and supports
 form fields for request submission.
 
-## RRC and the directory
+## RRC
 
 - **RRC (Reticulum Relay Chat)** is a real-time text chat protocol. The client
   joins rooms on RRC hubs, which Reticulum destination hashes address.
-- **`NNDirectory`** tracks known nodes (from announces) so users can browse a list
-  of reachable destinations rather than memorizing hashes.
 
 ## Interop
 

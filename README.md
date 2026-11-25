@@ -31,8 +31,7 @@ This is part of the [ReticulumSwift stack](https://github.com/SullivanPrell/Reti
 ## Status
 
 NomadNetSwift is **experimental**. It tracks Python NomadNet 1.4.4 and covers Micron
-markup, the browser, the node (`NNNode`), the RRC client, and the node directory
-(`NNDirectory`). The Python implementation is the authority on how NomadNet behaves.
+markup, the browser, the node (`NNNode`), and the RRC client. The Python implementation is the authority on how NomadNet behaves.
 Where this port differs from it, the port is wrong. Unit tests cover about 83% of lines.
 
 ## Requirements
