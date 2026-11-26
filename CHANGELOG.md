@@ -5,12 +5,49 @@ All notable changes to NomadNetSwift are documented here. This project follows
 
 ## [Unreleased]
 
-## [1.6.0]—RRC on low-MTU links, three Micron features, and NNDirectory parity
+## [2.0.0]—NNDirectory removed, and Micron reads numbers and structure as NomadNet 1.5.1 does
 
 ### Source-breaking
 
 - `NNDirectory` and `DirectoryEntry` are removed. Nothing in the package or RetiOS used them;
   RetiOS keeps its own node list. Python's `Directory.py` is no longer ported.
+
+### Micron reads numbers and structure as NomadNet 1.5.1 does
+
+A page that NomadNet parses one way no longer parses another way here. Each change is pinned by
+a vector that `scripts/micron-reference-vectors.py` prints from NomadNet itself; 73 vectors
+joined the suite, and 42 of them failed before this change.
+
+- **Numbers.** Python reads a table width, a field's width and rows and a partial's refresh
+  with `int()` and `float()`, and a color one code point at a time with `int(c, 16)` and
+  `int(c)`. Those accept a digit of any script, a padded value and an underscore, and reject a
+  sign in a color. The port read ASCII only. `NomadNetUtil+PythonNumbers.swift` now follows
+  Python's grammar for each reader (`MicronParser.py:188-192`, `:522`, `:796-845`, `:984-995`).
+  `PythonDecimalDigits.swift` lists the digits Python's Unicode 16.0.0 knows, because the
+  OS's Unicode version can differ; `scripts/generate-decimal-digits.py` regenerates it.
+- **Partials.** A refresh that `float()` rejects drops the partial, and so do four or more
+  parts (`:188-197`, `:219`). An empty field list is empty (`:209`).
+- **Fields.** Only a text or masked field stores a width and rows (`:984-995`).
+- **Line prefixes.** A heading line with a field loses its `>` before the escape and comment
+  checks, so `>#` before a field is a comment (`:497-513`).
+- **Tables.** A table renders only when its closing `` `t `` arrives and it has two rows or
+  more, so an unclosed table at the end of a page and a one-row table produce nothing
+  (`:131-159`, `:291-292`, `:516-531`).
+- **Headings.** A heading starts from the theme style with bold, underline, italic, and the
+  page colors off, and the page style comes back after it (`:21-26`, `:572-578`).
+
+### Not ported: a color reset inside a heading
+
+A `` `f `` or `` `b `` inside a heading returns to the page's default color in NomadNet, which
+for `` >`Ff00a`fb `` is the theme's plain foreground (`MicronParser.py:15`). The port keeps
+`.default`. Holding the difference needs a new `MicronColor` case, which would break exhaustive
+switches in apps.
+
+
+## [1.6.0]—RRC on low-MTU links, three Micron features, and NNDirectory parity
+
+### Source-breaking
+
 - `MicronNode` has a new `.image(MicronImage, depth:)` case. A `switch` over `MicronNode`
   with no `default` arm needs one for it. RetiOS's `MicronView` and reticulum-interop's
   `MicronTestNode` have such a switch.
@@ -46,37 +83,15 @@ All notable changes to NomadNetSwift are documented here. This project follows
 - Micron link parsing now matches Python in two cases (`MicronParser.py:1056-1074`):
   - **More than three parts:** the link is consumed and gives no output.
   - **Empty URL:** the link is consumed and gives no output. Before, it showed as text.
-
-### Micron reads numbers and structure as NomadNet 1.5.1 does
-
-A page that NomadNet parses one way no longer parses another way here. Each change is pinned by
-a vector that `scripts/micron-reference-vectors.py` prints from NomadNet itself; 73 vectors
-joined the suite, and 42 of them failed before this change.
-
-- **Numbers.** Python reads a table width, a field's width and rows and a partial's refresh
-  with `int()` and `float()`, and a color one code point at a time with `int(c, 16)` and
-  `int(c)`. Those accept a digit of any script, a padded value and an underscore, and reject a
-  sign in a color. The port read ASCII only. `NomadNetUtil+PythonNumbers.swift` now follows
-  Python's grammar for each reader (`MicronParser.py:188-192`, `:522`, `:796-845`, `:984-995`).
-  `PythonDecimalDigits.swift` lists the digits Python's Unicode 16.0.0 knows, because the
-  OS's Unicode version can differ; `scripts/generate-decimal-digits.py` regenerates it.
-- **Partials.** A refresh that `float()` rejects drops the partial, and so do four or more
-  parts (`:188-197`, `:219`). An empty field list is empty (`:209`).
-- **Fields.** Only a text or masked field stores a width and rows (`:984-995`).
-- **Line prefixes.** A heading line with a field loses its `>` before the escape and comment
-  checks, so `>#` before a field is a comment (`:497-513`).
-- **Tables.** A table renders only when its closing `` `t `` arrives and it has two rows or
-  more, so an unclosed table at the end of a page and a one-row table produce nothing
-  (`:131-159`, `:291-292`, `:516-531`).
-- **Headings.** A heading starts from the theme style with bold, underline, italic, and the
-  page colors off, and the page style comes back after it (`:21-26`, `:572-578`).
-
-### Not ported: a color reset inside a heading
-
-A `` `f `` or `` `b `` inside a heading returns to the page's default color in NomadNet, which
-for `` >`Ff00a`fb `` is the theme's plain foreground (`MicronParser.py:15`). The port keeps
-`.default`. Holding the difference needs a new `MicronColor` case, which would break exhaustive
-switches in apps.
+- `NNDirectory` now matches Python's `Directory.py`:
+  - It ignores a node or peer announce that has no app data.
+  - It no longer adds a trusted entry for a trusted peer's node. Python has that code
+    commented out.
+  - It saves and loads `announce_stream`.
+  - It loads a missing name as `"Undefined"`.
+  - `remember` copies a peer's trust to the node its identity hosts.
+  - `knownNodes` sorts like Python: an unranked node at Python's `2^32`, which is 34, and a
+    missing name as `"_"`.
 
 ### Fixed
 
@@ -92,6 +107,8 @@ switches in apps.
   `CBOR.decodeValidPrefix`.
 - A full disk no longer crashes the app while it appends RRC history. The append used
   `FileHandle.write(_:)`, which raises an Objective-C exception that `catch` can't handle.
+- `NNDirectory` lost every sort rank on load: msgpack writes a non-negative rank as an
+  unsigned int, and `load` read only signed ones.
 - A data race on `RRCHub` state. The hub wrote its status, rooms, unread and mention sets,
   notices, MOTD and hub limits under its lock on network threads, while an app read the public
   properties bare. Each public property now takes the lock. Under ThreadSanitizer, the new
@@ -105,6 +122,8 @@ switches in apps.
 
 - `NomadNetBrowser.encode(fields:variables:)` and `encodeFields(_:)`. Passing their `Data` to
   `Link.request(data:)` double-packs it (bugs/008). Use `encodeValue(fields:variables:)`.
+- `NNDirectory.addNodeAnnounce`, `addPeerAnnounce` and `addPNAnnounce`. They had no callers
+  and no Python counterpart. Use the `*AnnounceReceived` methods.
 
 
 ## [1.5.2]—NomadNet 1.5.1: a custom RRC hub name is a wanted type
