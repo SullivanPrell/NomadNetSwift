@@ -594,7 +594,7 @@ final class MicronParserTests: XCTestCase {
   }
 
   func testTableModeWithAlignment() {
-    let markup = "`tc\nrow1\n`t"
+    let markup = "`tc\nrow1\nrow2\n`t"
     let nodes = parse(markup)
     guard case .table(_, let align, _) = nodes.first else {
       XCTFail("Expected .table")
@@ -604,7 +604,7 @@ final class MicronParserTests: XCTestCase {
   }
 
   func testTableModeWithMaxWidth() {
-    let markup = "`t80\nrow1\n`t"
+    let markup = "`t80\nrow1\nrow2\n`t"
     let nodes = parse(markup)
     guard case .table(_, _, let maxW) = nodes.first else {
       XCTFail("Expected .table")
@@ -614,7 +614,7 @@ final class MicronParserTests: XCTestCase {
   }
 
   func testTableModeWithAlignmentAndWidth() {
-    let markup = "`tr60\ndata\n`t"
+    let markup = "`tr60\ndata\nmore\n`t"
     let nodes = parse(markup)
     guard case .table(_, let align, let maxW) = nodes.first else {
       XCTFail("Expected .table")
@@ -624,16 +624,15 @@ final class MicronParserTests: XCTestCase {
     XCTAssertEqual(maxW, 60)
   }
 
-  func testUnclosedTableAtEOFFlushed() {
-    let markup = "`t\nrow1\nrow2"
-    let nodes = parse(markup)
-    // Should flush a table with 2 rows
-    XCTAssertEqual(nodes.count, 1)
-    guard case .table(let rows, _, _) = nodes.first else {
-      XCTFail("Expected .table")
-      return
-    }
-    XCTAssertEqual(rows.count, 2)
+  func testUnclosedTableAtEOFIsDropped() {
+    // markup_to_attrmaps renders a table only when the closing `t arrives
+    // (MicronParser.py:131-159, :516-531).
+    XCTAssertTrue(parse("`t\nrow1\nrow2").isEmpty)
+  }
+
+  func testTableWithOneRowRendersNothing() {
+    // render_table returns nothing for fewer than two rows (MicronParser.py:291-292).
+    XCTAssertTrue(parse("`t\nrow1\n`t").isEmpty)
   }
 
   // MARK: - Partials

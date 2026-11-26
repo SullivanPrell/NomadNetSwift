@@ -497,6 +497,551 @@ struct MicronCodePointTests {
         .heading(level: 1, spans: [.text("\u{FF9E}T", style: .init())], depth: 1, slug: "t")
       ],
       anchors: ["t": 0]),
+    Vector(
+      "`F\u{661}\u{662}\u{663}x",
+      [
+        .line(
+          [.text("x", style: .init(fgColor: .rgb3(r: 1, g: 2, b: 3)))], depth: 0, alignment: .left)
+      ],
+      anchors: [:]),
+    Vector(
+      "`FT+5aabbx",
+      [
+        .line([.text("x", style: .init())], depth: 0, alignment: .left)
+      ],
+      anchors: [:]),
+    Vector(
+      "`Fg+5x",
+      [
+        .line([.text("x", style: .init())], depth: 0, alignment: .left)
+      ],
+      anchors: [:]),
+    Vector(
+      "`Fg\u{665}\u{660}x",
+      [
+        .line([.text("x", style: .init(fgColor: .grey(percent: 50)))], depth: 0, alignment: .left)
+      ],
+      anchors: [:]),
+    Vector(
+      "`FT\u{665}\u{660}\u{665}\u{660}\u{665}\u{660}x",
+      [
+        .line(
+          [.text("x", style: .init(fgColor: .rgb6(r: 80, g: 80, b: 80)))], depth: 0,
+          alignment: .left)
+      ],
+      anchors: [:]),
+    Vector(
+      "`B\u{661}\u{662}\u{663}x",
+      [
+        .line(
+          [.text("x", style: .init(bgColor: .rgb3(r: 1, g: 2, b: 3)))], depth: 0, alignment: .left)
+      ],
+      anchors: [:]),
+    Vector(
+      "`F+5ax",
+      [
+        .line([.text("x", style: .init())], depth: 0, alignment: .left)
+      ],
+      anchors: [:]),
+    Vector(
+      "`Fg50x",
+      [
+        .line([.text("x", style: .init(fgColor: .grey(percent: 50)))], depth: 0, alignment: .left)
+      ],
+      anchors: [:]),
+    Vector(
+      "`FT5aabbcx",
+      [
+        .line(
+          [.text("x", style: .init(fgColor: .rgb6(r: 90, g: 171, b: 188)))], depth: 0,
+          alignment: .left)
+      ],
+      anchors: [:]),
+    Vector(
+      "`t\n|a|\n|1|",
+      [],
+      anchors: [:]),
+    Vector(
+      "`t\n|a|\n`t",
+      [],
+      anchors: [:]),
+    Vector(
+      "`t\u{FF15}\u{FF10}\n|a|\n|1|\n`t",
+      [
+        .table(rows: [["|a|"], ["|1|"]], alignment: nil, maxWidth: 50)
+      ],
+      anchors: [:]),
+    Vector(
+      "`t 50\n|a|\n|1|\n`t",
+      [
+        .table(rows: [["|a|"], ["|1|"]], alignment: nil, maxWidth: 50)
+      ],
+      anchors: [:]),
+    Vector(
+      "`t5_0\n|a|\n|1|\n`t",
+      [
+        .table(rows: [["|a|"], ["|1|"]], alignment: nil, maxWidth: 50)
+      ],
+      anchors: [:]),
+    Vector(
+      "`t\n`t",
+      [],
+      anchors: [:]),
+    Vector(
+      "`tc50\n|a|\n|1|\n`t",
+      [
+        .table(rows: [["|a|"], ["|1|"]], alignment: .center, maxWidth: 50)
+      ],
+      anchors: [:]),
+    Vector(
+      "`t50\n|a|\n|1|\n`t",
+      [
+        .table(rows: [["|a|"], ["|1|"]], alignment: nil, maxWidth: 50)
+      ],
+      anchors: [:]),
+    Vector(
+      "`t50\r\n|a|\r\n|1|\r\n`t",
+      [
+        .table(rows: [["|a|\r"], ["|1|\r"]], alignment: nil, maxWidth: 50)
+      ],
+      anchors: [:]),
+    Vector(
+      "`{p`5`a||b}",
+      [
+        .partial(MicronPartial(url: "p", refreshInterval: 5.0, fields: ["a", "", "b"]))
+      ],
+      anchors: [:]),
+    Vector(
+      "`{p`5`a|}",
+      [
+        .partial(MicronPartial(url: "p", refreshInterval: 5.0, fields: ["a", ""]))
+      ],
+      anchors: [:]),
+    Vector(
+      "`{p}",
+      [
+        .partial(MicronPartial(url: "p", refreshInterval: nil, fields: []))
+      ],
+      anchors: [:]),
+    Vector(
+      "`[l`u`a||b]x",
+      [
+        .line(
+          [
+            .link(MicronLink(label: "l", url: "u", fields: ["a", "", "b"], style: .init())),
+            .text("x", style: .init()),
+          ], depth: 0, alignment: .left)
+      ],
+      anchors: [:]),
+    Vector(
+      "`[l`u`a|]x",
+      [
+        .line(
+          [
+            .link(MicronLink(label: "l", url: "u", fields: ["a", ""], style: .init())),
+            .text("x", style: .init()),
+          ], depth: 0, alignment: .left)
+      ],
+      anchors: [:]),
+    Vector(
+      "`[l`u`|]x",
+      [
+        .line(
+          [
+            .link(MicronLink(label: "l", url: "u", fields: ["", ""], style: .init())),
+            .text("x", style: .init()),
+          ], depth: 0, alignment: .left)
+      ],
+      anchors: [:]),
+    Vector(
+      "`[l`u`]x",
+      [
+        .line(
+          [
+            .link(MicronLink(label: "l", url: "u", fields: [], style: .init())),
+            .text("x", style: .init()),
+          ], depth: 0, alignment: .left)
+      ],
+      anchors: [:]),
+    Vector(
+      "`{p`x}",
+      [],
+      anchors: [:]),
+    Vector(
+      "`{p`5`a`b}",
+      [],
+      anchors: [:]),
+    Vector(
+      "`{p``a}",
+      [],
+      anchors: [:]),
+    Vector(
+      "`{p`0x10}",
+      [],
+      anchors: [:]),
+    Vector(
+      "`{p` 5 }",
+      [
+        .partial(MicronPartial(url: "p", refreshInterval: 5.0, fields: []))
+      ],
+      anchors: [:]),
+    Vector(
+      "`{p`1_0}",
+      [
+        .partial(MicronPartial(url: "p", refreshInterval: 10.0, fields: []))
+      ],
+      anchors: [:]),
+    Vector(
+      "`{p`\u{665}}",
+      [
+        .partial(MicronPartial(url: "p", refreshInterval: 5.0, fields: []))
+      ],
+      anchors: [:]),
+    Vector(
+      "`{p`0x1p3}",
+      [],
+      anchors: [:]),
+    Vector(
+      "`{p`nan(1)}",
+      [],
+      anchors: [:]),
+    Vector(
+      "`{p`0.5}",
+      [
+        .partial(MicronPartial(url: "p", refreshInterval: nil, fields: []))
+      ],
+      anchors: [:]),
+    Vector(
+      "`{p`-5}",
+      [
+        .partial(MicronPartial(url: "p", refreshInterval: nil, fields: []))
+      ],
+      anchors: [:]),
+    Vector(
+      "`{p`+5}",
+      [
+        .partial(MicronPartial(url: "p", refreshInterval: 5.0, fields: []))
+      ],
+      anchors: [:]),
+    Vector(
+      "`{p`5.}",
+      [
+        .partial(MicronPartial(url: "p", refreshInterval: 5.0, fields: []))
+      ],
+      anchors: [:]),
+    Vector(
+      "`{p`1e1}",
+      [
+        .partial(MicronPartial(url: "p", refreshInterval: 10.0, fields: []))
+      ],
+      anchors: [:]),
+    Vector(
+      "`{p`inf}",
+      [
+        .partial(MicronPartial(url: "p", refreshInterval: .infinity, fields: []))
+      ],
+      anchors: [:]),
+    Vector(
+      "`{p`nan}",
+      [
+        .partial(MicronPartial(url: "p", refreshInterval: .nan, fields: []))
+      ],
+      anchors: [:]),
+    Vector(
+      "`{p`INFINITY}",
+      [
+        .partial(MicronPartial(url: "p", refreshInterval: .infinity, fields: []))
+      ],
+      anchors: [:]),
+    Vector(
+      "`[a`b`c`d]x",
+      [
+        .line([.text("x", style: .init())], depth: 0, alignment: .left)
+      ],
+      anchors: [:]),
+    Vector(
+      "`[l`]x",
+      [
+        .line([.text("x", style: .init())], depth: 0, alignment: .left)
+      ],
+      anchors: [:]),
+    Vector(
+      "`<10x3|n`v>",
+      [
+        .line(
+          [
+            .field(
+              MicronField(
+                fieldType: .text, name: "n", value: "v", label: "", width: 10, rows: 3,
+                prechecked: false, style: .init()))
+          ], depth: 0, alignment: .left)
+      ],
+      anchors: [:]),
+    Vector(
+      "`<10x|n`v>",
+      [
+        .line(
+          [
+            .field(
+              MicronField(
+                fieldType: .text, name: "n", value: "v", label: "", width: 10, prechecked: false,
+                style: .init()))
+          ], depth: 0, alignment: .left)
+      ],
+      anchors: [:]),
+    Vector(
+      "`< 10|n`v>",
+      [
+        .line(
+          [
+            .field(
+              MicronField(
+                fieldType: .text, name: "n", value: "v", label: "", width: 10, prechecked: false,
+                style: .init()))
+          ], depth: 0, alignment: .left)
+      ],
+      anchors: [:]),
+    Vector(
+      "`<300|n`v>",
+      [
+        .line(
+          [
+            .field(
+              MicronField(
+                fieldType: .text, name: "n", value: "v", label: "", width: 256, prechecked: false,
+                style: .init()))
+          ], depth: 0, alignment: .left)
+      ],
+      anchors: [:]),
+    Vector(
+      "`<x3|n`v>",
+      [
+        .line(
+          [
+            .field(
+              MicronField(
+                fieldType: .text, name: "n", value: "v", label: "", width: 24, rows: 3,
+                prechecked: false, style: .init()))
+          ], depth: 0, alignment: .left)
+      ],
+      anchors: [:]),
+    Vector(
+      "`<10x999|n`v>",
+      [
+        .line(
+          [
+            .field(
+              MicronField(
+                fieldType: .text, name: "n", value: "v", label: "", width: 10, rows: 256,
+                prechecked: false, style: .init()))
+          ], depth: 0, alignment: .left)
+      ],
+      anchors: [:]),
+    Vector(
+      "`<10x0|n`v>",
+      [
+        .line(
+          [
+            .field(
+              MicronField(
+                fieldType: .text, name: "n", value: "v", label: "", width: 10, prechecked: false,
+                style: .init()))
+          ], depth: 0, alignment: .left)
+      ],
+      anchors: [:]),
+    Vector(
+      "`<10x-3|n`v>",
+      [
+        .line(
+          [
+            .field(
+              MicronField(
+                fieldType: .text, name: "n", value: "v", label: "", width: 10, prechecked: false,
+                style: .init()))
+          ], depth: 0, alignment: .left)
+      ],
+      anchors: [:]),
+    Vector(
+      "`<10xq|n`v>",
+      [
+        .line(
+          [
+            .field(
+              MicronField(
+                fieldType: .text, name: "n", value: "v", label: "", width: 10, prechecked: false,
+                style: .init()))
+          ], depth: 0, alignment: .left)
+      ],
+      anchors: [:]),
+    Vector(
+      "`<qx3|n`v>",
+      [
+        .line(
+          [
+            .field(
+              MicronField(
+                fieldType: .text, name: "n", value: "v", label: "", width: 24, rows: 3,
+                prechecked: false, style: .init()))
+          ], depth: 0, alignment: .left)
+      ],
+      anchors: [:]),
+    Vector(
+      "`<q|n`v>",
+      [
+        .line(
+          [
+            .field(
+              MicronField(
+                fieldType: .text, name: "n", value: "v", label: "", width: 24, prechecked: false,
+                style: .init()))
+          ], depth: 0, alignment: .left)
+      ],
+      anchors: [:]),
+    Vector(
+      "`<?10|n`v>",
+      [
+        .line(
+          [
+            .field(
+              MicronField(
+                fieldType: .checkbox, name: "n", value: "v", label: "v", width: 24,
+                prechecked: false, style: .init()))
+          ], depth: 0, alignment: .left)
+      ],
+      anchors: [:]),
+    Vector(
+      "`<^10x3|n`v>",
+      [
+        .line(
+          [
+            .field(
+              MicronField(
+                fieldType: .radio, name: "n", value: "v", label: "v", width: 24, prechecked: false,
+                style: .init()))
+          ], depth: 0, alignment: .left)
+      ],
+      anchors: [:]),
+    Vector(
+      "`<!10x3|n`v>",
+      [
+        .line(
+          [
+            .field(
+              MicronField(
+                fieldType: .masked, name: "n", value: "v", label: "", width: 10, rows: 3,
+                prechecked: false, style: .init()))
+          ], depth: 0, alignment: .left)
+      ],
+      anchors: [:]),
+    Vector(
+      ">#`<x`y>",
+      [],
+      anchors: [:]),
+    Vector(
+      ">>#x`<n`v>",
+      [],
+      anchors: [:]),
+    Vector(
+      ">\\`t`<n`v>",
+      [],
+      anchors: [:]),
+    Vector(
+      ">\\x`<n`v>",
+      [
+        .line(
+          [
+            .text("x", style: .init()),
+            .field(
+              MicronField(
+                fieldType: .text, name: "n", value: "v", label: "", width: 24, prechecked: false,
+                style: .init())),
+          ], depth: 0, alignment: .left)
+      ],
+      anchors: [:]),
+    Vector(
+      ">-`<n`v>",
+      [
+        .horizontalRule(character: "\u{2500}")
+      ],
+      anchors: [:]),
+    Vector(
+      "><`<n`v>",
+      [
+        .line(
+          [
+            .field(
+              MicronField(
+                fieldType: .text, name: "n", value: "v", label: "", width: 24, prechecked: false,
+                style: .init()))
+          ], depth: 0, alignment: .left)
+      ],
+      anchors: [:]),
+    Vector(
+      ">`!T\nx",
+      [
+        .heading(level: 1, spans: [.text("T", style: .init(bold: true))], depth: 1, slug: "t"),
+        .line([.text("x", style: .init())], depth: 1, alignment: .left),
+      ],
+      anchors: ["t": 0]),
+    Vector(
+      "`!a\n>T",
+      [
+        .line([.text("a", style: .init(bold: true))], depth: 0, alignment: .left),
+        .heading(level: 1, spans: [.text("T", style: .init())], depth: 1, slug: "t"),
+      ],
+      anchors: ["t": 1]),
+    Vector(
+      "`!\n>T\n`!x",
+      [
+        .heading(level: 1, spans: [.text("T", style: .init())], depth: 1, slug: "t"),
+        .line([.text("x", style: .init())], depth: 1, alignment: .left),
+      ],
+      anchors: ["t": 0]),
+    Vector(
+      "`_a\n>T\nb",
+      [
+        .line([.text("a", style: .init(underline: true))], depth: 0, alignment: .left),
+        .heading(level: 1, spans: [.text("T", style: .init())], depth: 1, slug: "t"),
+        .line([.text("b", style: .init(underline: true))], depth: 1, alignment: .left),
+      ],
+      anchors: ["t": 1]),
+    Vector(
+      ">`*T\nx",
+      [
+        .heading(level: 1, spans: [.text("T", style: .init(italic: true))], depth: 1, slug: "t"),
+        .line([.text("x", style: .init())], depth: 1, alignment: .left),
+      ],
+      anchors: ["t": 0]),
+    Vector(
+      "#!fg=f00\n#!bg=00f\n>T\nx",
+      [
+        .heading(level: 1, spans: [.text("T", style: .init())], depth: 1, slug: "t"),
+        .line(
+          [
+            .text(
+              "x",
+              style: .init(fgColor: .rgb3(r: 15, g: 0, b: 0), bgColor: .rgb3(r: 0, g: 0, b: 15)))
+          ], depth: 1, alignment: .left),
+      ],
+      anchors: ["t": 0]),
+    Vector(
+      ">\u{212A}",
+      [
+        .heading(level: 1, spans: [.text("\u{212A}", style: .init())], depth: 1, slug: "")
+      ],
+      anchors: [:]),
+    Vector(
+      ">a`}b",
+      [
+        .heading(level: 1, spans: [.text("ab", style: .init())], depth: 1, slug: "a-b")
+      ],
+      anchors: ["a-b": 0]),
+    Vector(
+      ">\u{130}x",
+      [
+        .heading(level: 1, spans: [.text("\u{130}x", style: .init())], depth: 1, slug: "x")
+      ],
+      anchors: ["x": 0]),
   ]
   /// Pages through the browser, which strips modifiers first (`Browser.py:1846`).
   static let browserVectors: [Vector] = [
